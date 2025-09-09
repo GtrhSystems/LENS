@@ -37,6 +37,11 @@ sudo useradd -m -s /bin/bash lens || true
 sudo usermod -aG sudo lens
 sudo usermod -aG docker lens
 
+# Create project directory with proper permissions
+sudo mkdir -p /opt/lens
+sudo chown lens:lens /opt/lens
+sudo chmod 755 /opt/lens
+
 # Generate secure passwords
 DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
 REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
@@ -46,6 +51,7 @@ JWT_SECRET=$(openssl rand -base64 64)
 sudo -u lens git clone https://github.com/GtrhSystems/LENS.git /opt/lens || true
 cd /opt/lens
 sudo chown -R lens:lens /opt/lens
+sudo chmod -R 755 /opt/lens
 
 # Setup environment
 sudo -u lens cp .env.example .env
