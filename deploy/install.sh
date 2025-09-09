@@ -1,52 +1,79 @@
 #!/bin/bash
 
+# LENS - Sistema de Gestión de Contenido Multimedia
+# Script de instalación automática para Ubuntu 24.04 LTS
+# Versión: 2.0
+# Autor: GtrhSystems
+
+set -e  # Salir si hay errores
+
+echo "🚀 Iniciando instalación de LENS v2.0..."
+echo "📋 Sistema objetivo: Ubuntu 24.04 LTS"
+echo "🏢 Optimizado para Contabo VPS"
+echo ""
+
+# Verificar que se ejecuta como root
+if [[ $EUID -ne 0 ]]; then
+   echo "❌ Este script debe ejecutarse como root (sudo)" 
+   exit 1
+fi
+
 # Actualizar sistema
-sudo apt update && sudo apt upgrade -y
+echo "📦 Actualizando sistema..."
+apt update && apt upgrade -y
 
 # Instalar paquetes esenciales
-sudo apt install -y curl git wget gnupg2 software-properties-common apt-transport-https ca-certificates lsb-release
+echo "🔧 Instalando paquetes esenciales..."
+apt install -y curl git wget gnupg2 software-properties-common apt-transport-https ca-certificates lsb-release ufw
 
 # Instalar Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io
+echo "🐳 Instalando Docker..."
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io
 
 # Instalar Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+echo "🔗 Instalando Docker Compose..."
+curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 
 # Iniciar y habilitar Docker
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
+systemctl start docker
+systemctl enable docker
+usermod -aG docker $USER
 
 # Instalar PostgreSQL
-sudo apt install -y postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
+echo "🗄️ Instalando PostgreSQL..."
+apt install -y postgresql postgresql-contrib
+systemctl start postgresql
+systemctl enable postgresql
 
 # Instalar Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+echo "📦 Instalando Node.js 20 LTS..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
 
-# Create lens user
-sudo useradd -m -s /bin/bash lens || true
-sudo usermod -aG sudo lens
-sudo usermod -aG docker lens
+# Crear usuario lens
+echo "👤 Creando usuario lens..."
+useradd -m -s /bin/bash lens || true
+usermod -aG sudo lens
+usermod -aG docker lens
 
-# Create project directory with proper permissions
-sudo mkdir -p /opt/lens
-sudo chown lens:lens /opt/lens
-sudo chmod 755 /opt/lens
+# Crear directorio del proyecto
+echo "📁 Configurando directorio del proyecto..."
+mkdir -p /opt/lens
+chown lens:lens /opt/lens
+chmod 755 /opt/lens
 
-# Generar contraseñas y claves seguras automáticamente
+# Generar credenciales seguras
+echo "🔐 Generando credenciales seguras..."
 DB_PASSWORD="Systems-GT161623++"
 REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
 JWT_SECRET=$(openssl rand -hex 64)
 ENCRYPTION_KEY=$(openssl rand -hex 32)
 
-# Credenciales predefinidas de APIs
+# Credenciales predefinidas
 TMDB_API_KEY="70435d34ec469ca91c4b95991d16ec3f"
 OMDB_API_KEY="8057e51"
 CONTABO_CLIENT_ID="INT-13821944"
@@ -65,15 +92,15 @@ ALTER USER lens_user CREATEDB;
 \q
 EOF
 
-# Clone LENS project
+# Clonar proyecto LENS
 echo "📥 Clonando proyecto LENS..."
 sudo -u lens git clone https://github.com/GtrhSystems/LENS.git /opt/lens || true
 cd /opt/lens
-sudo chown -R lens:lens /opt/lens
-sudo chmod -R 755 /opt/lens
+chown -R lens:lens /opt/lens
+chmod -R 755 /opt/lens
 
 # Crear archivo .env completo
-echo "⚙️ Configurando archivo .env..."
+echo "⚙️ Configurando variables de entorno..."
 sudo -u lens tee /opt/lens/.env > /dev/null << EOF
 # Configuración del Servidor
 PORT=3001
@@ -106,7 +133,7 @@ LOG_FILE_PATH=./logs/lens.log
 UPLOAD_MAX_SIZE=50MB
 UPLOAD_PATH=./uploads
 
-# Configuración de Seguridad (Generadas automáticamente)
+# Configuración de Seguridad
 JWT_SECRET=${JWT_SECRET}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
@@ -125,40 +152,39 @@ CONTABO_AUTO_BACKUP=true
 CONTABO_BACKUP_RETENTION=7
 EOF
 
-# Configurar permisos del archivo .env
-sudo chown lens:lens /opt/lens/.env
-sudo chmod 600 /opt/lens/.env
+# Configurar permisos del .env
+chown lens:lens /opt/lens/.env
+chmod 600 /opt/lens/.env
 
-# Mostrar las credenciales generadas
-echo "🔐 Credenciales generadas:"
-echo "Database Password: ${DB_PASSWORD}"
-echo "Redis Password: ${REDIS_PASSWORD}"
-echo "JWT Secret: ${JWT_SECRET}"
-echo "Encryption Key: ${ENCRYPTION_KEY}"
+# Instalar dependencias
+echo "📦 Instalando dependencias..."
+sudo -u lens npm install
 
-# Build and start services
+# Ejecutar migraciones de Prisma
+echo "🗄️ Configurando base de datos..."
+sudo -u lens npx prisma generate
+sudo -u lens npx prisma migrate deploy
+
+# Construir y iniciar servicios
 echo "🚀 Iniciando servicios Docker..."
 sudo -u lens docker-compose -f docker-compose.contabo.yml up -d --build
 
-# Wait for services to be ready
-echo "⏳ Esperando que los servicios estén listos..."
+# Esperar a que los servicios estén listos
+echo "⏳ Esperando servicios..."
 sleep 30
 
-# Run database migrations
-echo "🗄️ Ejecutando migraciones de base de datos..."
-sudo -u lens docker-compose -f docker-compose.contabo.yml exec -T lens-app npx prisma migrate deploy
-sudo -u lens docker-compose -f docker-compose.contabo.yml exec -T lens-app npx prisma generate
-
-# Setup firewall
+# Configurar firewall
 echo "🔥 Configurando firewall..."
-sudo ufw allow ssh
-sudo ufw allow 80
-sudo ufw allow 443
-sudo ufw allow 5432/tcp  # PostgreSQL
-sudo ufw --force enable
+ufw allow ssh
+ufw allow 80
+ufw allow 443
+ufw allow 3001/tcp
+ufw allow 5432/tcp
+ufw --force enable
 
-# Setup log rotation
-sudo tee /etc/logrotate.d/lens << EOF
+# Configurar rotación de logs
+echo "📝 Configurando rotación de logs..."
+tee /etc/logrotate.d/lens << EOF
 /opt/lens/logs/*.log {
     daily
     missingok
@@ -173,14 +199,50 @@ sudo tee /etc/logrotate.d/lens << EOF
 }
 EOF
 
-echo "✅ Instalación completada!"
-echo "🌐 Acceso: http://$(curl -s ifconfig.me):3001"
-echo "📊 Estado de contenedores: docker-compose -f docker-compose.contabo.yml ps"
-echo "📝 Logs: docker-compose -f docker-compose.contabo.yml logs -f"
+# Crear servicio systemd
+echo "🔧 Creando servicio systemd..."
+tee /etc/systemd/system/lens.service << EOF
+[Unit]
+Description=LENS Media Management System
+After=network.target postgresql.service docker.service
+Requires=postgresql.service docker.service
+
+[Service]
+Type=forking
+User=lens
+Group=lens
+WorkingDirectory=/opt/lens
+ExecStart=/usr/local/bin/docker-compose -f docker-compose.contabo.yml up -d
+ExecStop=/usr/local/bin/docker-compose -f docker-compose.contabo.yml down
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable lens
+systemctl start lens
+
 echo ""
-echo "🔐 CREDENCIALES IMPORTANTES:"
-echo "Database: lens_db"
-echo "DB User: lens_user"
-echo "DB Password: ${DB_PASSWORD}"
-echo "JWT Secret: ${JWT_SECRET}"
-echo "Redis Password: ${REDIS_PASSWORD}"
+echo "✅ ¡Instalación de LENS completada exitosamente!"
+echo ""
+echo "🌐 Información de acceso:"
+echo "   URL: http://$(curl -s ifconfig.me):3001"
+echo "   URL Local: http://localhost:3001"
+echo ""
+echo "🔐 Credenciales generadas:"
+echo "   Database: lens_db"
+echo "   DB User: lens_user"
+echo "   DB Password: ${DB_PASSWORD}"
+echo "   JWT Secret: ${JWT_SECRET}"
+echo "   Redis Password: ${REDIS_PASSWORD}"
+echo ""
+echo "📊 Comandos útiles:"
+echo "   Estado: systemctl status lens"
+echo "   Logs: docker-compose -f /opt/lens/docker-compose.contabo.yml logs -f"
+echo "   Reiniciar: systemctl restart lens"
+echo "   Parar: systemctl stop lens"
+echo ""
+echo "🎉 LENS está listo para usar!"
