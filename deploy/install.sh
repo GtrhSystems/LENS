@@ -1,127 +1,83 @@
 #!/bin/bash
 
 # LENS VPS Installation Script
-# Ubuntu 20.04/22.04 LTS
+# Ubuntu 24.04 LTS - Actualizado 2024
 
 set -e
 
-echo "🚀 Iniciando instalación de LENS..."
+echo "🚀 Iniciando instalación limpia de LENS en Ubuntu 24.04..."
 
 # Update system
 sudo apt update && sudo apt upgrade -y
 
 # Install essential packages
-sudo apt install -y curl wget git unzip software-properties-common
+sudo apt install -y curl wget git unzip software-properties-common ca-certificates gnupg lsb-release
 
-# Install Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Install Docker (Método oficial 2024)
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Start Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+
+# Install Docker Compose standalone (backup)
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Install Node.js 20 LTS (Actualizado)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# Install PostgreSQL
-sudo apt install -y postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Install Redis
-sudo apt install -y redis-server
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-
-# Install Nginx
-sudo apt install -y nginx
-sudo systemctl start nginx
-sudo systemctl enable nginx
-
-# Install PM2 globally
-sudo npm install -g pm2
-
 # Create lens user
-sudo useradd -m -s /bin/bash lens
+sudo useradd -m -s /bin/bash lens || true
 sudo usermod -aG sudo lens
+sudo usermod -aG docker lens
 
-# Generate secure database password
+# Generate secure passwords
 DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+JWT_SECRET=$(openssl rand -base64 64)
 
-# Setup PostgreSQL database
-sudo -u postgres createuser lens
-sudo -u postgres createdb lens_db
-sudo -u postgres psql -c "ALTER USER lens PASSWORD '$DB_PASSWORD';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE lens_db TO lens;"
-
-# Clone and setup LENS
-sudo -u lens git clone https://github.com/GtrhSystems/LENS.git /home/lens/lens
-cd /home/lens/lens
-
-# Install dependencies
-sudo -u lens npm install
-cd src/frontend && sudo -u lens npm install && cd ../..
+# Clone LENS project
+sudo -u lens git clone https://github.com/GtrhSystems/LENS.git /opt/lens || true
+cd /opt/lens
+sudo chown -R lens:lens /opt/lens
 
 # Setup environment
 sudo -u lens cp .env.example .env
-
-# Generate JWT secret
-JWT_SECRET=$(openssl rand -base64 32)
 sudo -u lens sed -i "s/your_jwt_secret_here/$JWT_SECRET/g" .env
-sudo -u lens sed -i "s/your_database_url_here/postgresql:\/\/lens:$DB_PASSWORD@localhost:5432\/lens_db/g" .env
+sudo -u lens sed -i "s/your_database_password_here/$DB_PASSWORD/g" .env
+sudo -u lens sed -i "s/your_redis_password_here/$REDIS_PASSWORD/g" .env
+
+# Export environment variables for Docker
+echo "DB_PASSWORD=$DB_PASSWORD" | sudo -u lens tee -a .env
+echo "REDIS_PASSWORD=$REDIS_PASSWORD" | sudo -u lens tee -a .env
+echo "JWT_SECRET=$JWT_SECRET" | sudo -u lens tee -a .env
+
+# Build and start services
+sudo -u lens docker-compose -f docker-compose.contabo.yml up -d --build
+
+# Wait for services to be ready
+echo "⏳ Esperando que los servicios estén listos..."
+sleep 30
 
 # Run database migrations
-sudo -u lens npx prisma migrate deploy
-sudo -u lens npx prisma generate
-
-# Build frontend
-cd src/frontend
-sudo -u lens npm run build
-cd ../..
-
-# Setup PM2 ecosystem
-sudo -u lens pm2 start ecosystem.config.js
-sudo -u lens pm2 save
-sudo -u lens pm2 startup
-
-# Configure Nginx
-sudo tee /etc/nginx/sites-available/lens << EOF
-server {
-    listen 80;
-    server_name your-domain.com;
-    
-    # Frontend
-    location / {
-        root /home/lens/lens/src/frontend/build;
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    # API
-    location /api {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
-}
-EOF
-
-sudo ln -s /etc/nginx/sites-available/lens /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-
-# Setup SSL with Certbot
-sudo apt install -y certbot python3-certbot-nginx
-# sudo certbot --nginx -d your-domain.com
+sudo -u lens docker-compose -f docker-compose.contabo.yml exec -T lens-app npx prisma migrate deploy
+sudo -u lens docker-compose -f docker-compose.contabo.yml exec -T lens-app npx prisma generate
 
 # Setup firewall
 sudo ufw allow ssh
-sudo ufw allow 'Nginx Full'
+sudo ufw allow 80
+sudo ufw allow 443
 sudo ufw --force enable
 
 # Setup log rotation
 sudo tee /etc/logrotate.d/lens << EOF
-/home/lens/lens/logs/*.log {
+/opt/lens/logs/*.log {
     daily
     missingok
     rotate 14
@@ -129,14 +85,18 @@ sudo tee /etc/logrotate.d/lens << EOF
     notifempty
     create 0644 lens lens
     postrotate
-        sudo -u lens pm2 reload all
+        cd /opt/lens && sudo -u lens docker-compose -f docker-compose.contabo.yml restart lens-app
     endscript
 }
 EOF
 
-echo "✅ Instalación completada!"
-echo "🔒 Password de base de datos generado: $DB_PASSWORD"
-echo "⚠️  IMPORTANTE: Guarda esta contraseña en un lugar seguro"
-echo "🌐 Accede a tu aplicación en: http://your-domain.com"
-echo "📊 Monitoreo PM2: sudo -u lens pm2 monit"
-echo "📝 Logs: sudo -u lens pm2 logs"
+echo "✅ ¡Instalación completada exitosamente!"
+echo "🔒 Password de PostgreSQL: $DB_PASSWORD"
+echo "🔒 Password de Redis: $REDIS_PASSWORD"
+echo "🔑 JWT Secret generado automáticamente"
+echo "⚠️  IMPORTANTE: Guarda estas contraseñas en un lugar seguro"
+echo "🌐 Accede a tu aplicación en: http://$(curl -s ifconfig.me)"
+echo "📊 Estado de contenedores: sudo -u lens docker-compose -f docker-compose.contabo.yml ps"
+echo "📝 Logs: sudo -u lens docker-compose -f docker-compose.contabo.yml logs -f"
+echo ""
+echo "🚀 LENS está ejecutándose en Ubuntu 24.04 con Docker!"
