@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lens-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lens_db
+      POSTGRES_USER: lens
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lens_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    networks:
+      - lens-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lens -d lens_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lens-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - lens-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LENS Application
+  lens-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lens-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://lens:${DB_PASSWORD:-lens_secure_password}@postgres:5432/lens_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - OMDB_API_KEY=${OMDB_API_KEY}
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - lens-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: lens-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - lens-network
+    depends_on:
+      - lens-app
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: lens-backup
+    restart: "no"
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-lens_secure_password}
+    volumes:
+      - ./backups:/backups
+      - ./scripts:/scripts:ro
+    networks:
+      - lens-network
+    depends_on:
+      - postgres
+    command: >
+      sh -c '
+        echo "0 2 * * * /scripts/backup.sh" | crontab -
+        crond -f
+      '
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  lens-network:
+    driver: bridge
