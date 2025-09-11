@@ -55,32 +55,30 @@ export class OMDBService {
       baseURL: config.omdb.baseUrl,
       timeout: 10000,
       params: {
-        apikey: config.omdb.apiKey,
-      },
+        apikey: config.omdb.apiKey
+      }
     });
 
-    // Interceptor para logging
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use((config: any) => {
       logger.debug('OMDB Request:', {
         url: config.url,
-        params: { ...config.params, apikey: '[HIDDEN]' },
+        params: config.params
       });
       return config;
     });
 
     this.client.interceptors.response.use(
-      (response) => {
+      (response: any) => {
         logger.debug('OMDB Response:', {
-          url: response.config.url,
           status: response.status,
+          data: response.data
         });
         return response;
       },
-      (error) => {
+      (error: any) => {
         logger.error('OMDB Error:', {
-          url: error.config?.url,
-          status: error.response?.status,
           message: error.message,
+          status: error.response?.status
         });
         return Promise.reject(error);
       }
@@ -195,18 +193,14 @@ export class OMDBService {
 
   parseRating(rating: string): number | null {
     if (!rating || rating === 'N/A') return null;
-    
-    // Convertir rating de formato "8.5/10" a número
-    const match = rating.match(/^([\d.]+)/);
-    return match ? parseFloat(match[1]) : null;
+    const match = rating.match(/([\d.]+)/);
+    return match && match[1] ? parseFloat(match[1]) : null;
   }
 
   parseRuntime(runtime: string): number | null {
     if (!runtime || runtime === 'N/A') return null;
-    
-    // Convertir "120 min" a número
-    const match = runtime.match(/^(\d+)/);
-    return match ? parseInt(match[1]) : null;
+    const match = runtime.match(/(\d+)/);
+    return match && match[1] ? parseInt(match[1]) : null;
   }
 
   parseGenres(genre: string): string[] {

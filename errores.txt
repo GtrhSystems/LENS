@@ -1,0 +1,761 @@
+────────────────────────────────────────────────────────┐
+│  Update available 5.22.0 -> 6.16.1                      │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+✅ Dependencias de Node.js instaladas correctamente
+ℹ️  Compilando aplicación TypeScript...
+
+> lens-scanner@1.0.0 build
+> tsc
+
+src/config/config.ts:1:20 - error TS2307: Cannot find module 'dotenv' or its corresponding type declarations.
+
+1 import dotenv from 'dotenv';
+                     ~~~~~~~~
+
+src/config/config.ts:170:21 - error TS2339: Property 'jwtSecret' does not exist on type '{ readonly jwt: { readonly secret: string; }; readonly jwtExpiresIn: string; readonly jwtRefreshExpiresIn: string; readonly encryptionKey: string; readonly bcryptRounds: number; readonly sessionSecret: string; readonly csrfProtection: boolean; readonly helmet: { ...; }; }'.
+
+170 if (config.security.jwtSecret === 'your-secret-key' && config.nodeEnv === 'production') {
+                        ~~~~~~~~~
+
+src/middleware/auth.ts:14:34 - error TS7030: Not all code paths return a value.
+
+14 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/middleware/auth.ts:22:28 - error TS2339: Property 'JWT_SECRET' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+22   jwt.verify(token, config.JWT_SECRET, (err: any, user: any) => {
+                              ~~~~~~~~~~
+
+src/middleware/auth.ts:22:40 - error TS7030: Not all code paths return a value.
+
+22   jwt.verify(token, config.JWT_SECRET, (err: any, user: any) => {
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/middleware/auth.ts:33:10 - error TS7030: Not all code paths return a value.
+
+33   return (req: Request, res: Response, next: NextFunction) => {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/middleware/auth.ts:48:10 - error TS7030: Not all code paths return a value.
+
+48   return (req: Request, res: Response, next: NextFunction) => {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/middleware/errorHandler.ts:4:29 - error TS7030: Not all code paths return a value.
+
+  4 export const errorHandler = (
+                                ~
+  5   error: any,
+    ~~~~~~~~~~~~~
+...
+  8   next: NextFunction
+    ~~~~~~~~~~~~~~~~~~~~
+  9 ) => {
+    ~~~~~~
+
+src/middleware/rateLimiter.ts:8:29 - error TS2339: Property 'getClient' does not exist on type 'RedisService'.
+
+8   storeClient: redisService.getClient(),
+                              ~~~~~~~~~
+
+src/middleware/rateLimiter.ts:16:31 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+  Type 'undefined' is not assignable to type 'string | number'.
+
+16     await rateLimiter.consume(req.ip);
+                                 ~~~~~~
+
+src/parsers/M3UParser.ts:1:19 - error TS2307: Cannot find module 'axios' or its corresponding type declarations.
+
+1 import axios from 'axios';
+                    ~~~~~~~
+
+src/parsers/M3UParser.ts:88:11 - error TS18048: 'line' is possibly 'undefined'.
+
+88       if (line.startsWith('#EXTINF:')) {
+             ~~~~
+
+src/parsers/M3UParser.ts:91:42 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+91           const entry = this.parseExtinf(line, nextLine);
+                                            ~~~~
+
+src/parsers/M3UParser.ts:134:33 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+134     const duration = parseFloat(match[1]);
+                                    ~~~~~~~~
+
+src/parsers/M3UParser.ts:141:61 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+141     while ((attributeMatch = M3UParser.ATTRIBUTE_REGEX.exec(info)) !== null) {
+                                                                ~~~~
+
+src/parsers/M3UParser.ts:142:7 - error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+142       attributes[attributeMatch[1].toLowerCase()] = attributeMatch[2];
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/parsers/M3UParser.ts:142:18 - error TS2532: Object is possibly 'undefined'.
+
+142       attributes[attributeMatch[1].toLowerCase()] = attributeMatch[2];
+                     ~~~~~~~~~~~~~~~~~
+
+src/parsers/M3UParser.ts:146:23 - error TS18048: 'info' is possibly 'undefined'.
+
+146     const nameMatch = info.match(/,\s*(.+)$/);
+                          ~~~~
+
+src/parsers/M3UParser.ts:147:30 - error TS2532: Object is possibly 'undefined'.
+
+147     const name = nameMatch ? nameMatch[1].trim() : info.trim();
+                                 ~~~~~~~~~~~~
+
+src/parsers/M3UParser.ts:147:52 - error TS18048: 'info' is possibly 'undefined'.
+
+147     const name = nameMatch ? nameMatch[1].trim() : info.trim();
+                                                       ~~~~
+
+src/parsers/M3UParser.ts:149:11 - error TS2375: Type '{ name: string; url: string; duration: number | undefined; }' is not assignable to type 'M3UEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'duration' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+149     const entry: M3UEntry = {
+              ~~~~~
+
+src/parsers/M3UParser.ts:164:5 - error TS2412: Type 'Quality | undefined' is not assignable to type 'Quality' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'Quality'.
+
+164     entry.quality = this.detectQuality(name);
+        ~~~~~~~~~~~~~
+
+src/parsers/M3UParser.ts:167:5 - error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+
+167     entry.category = this.detectCategory(name, entry.group);
+        ~~~~~~~~~~~~~~
+
+src/routes/contabo.ts:8:12 - error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'RateLimiterRedis' is not assignable to parameter of type 'PathParams'.
+
+8 router.use(rateLimiter);
+             ~~~~~~~~~~~
+
+  node_modules/@types/express-serve-static-core/index.d.ts:153:5
+    153     <
+            ~
+    154         P = ParamsDictionary,
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ...
+    162         ...handlers: Array<RequestHandlerParams<P, ResBody, ReqBody, ReqQuery, LocalsObj>>
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    163     ): T;
+        ~~~~~~~~~
+    The last overload is declared here.
+
+src/routes/sources.ts:11:20 - error TS2554: Expected 3 arguments, but got 0.
+
+11 const classifier = new ContentClassifierService();
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  src/services/ContentClassifierService.ts:49:5
+    49     tmdbService: TMDBService,
+           ~~~~~~~~~~~~~~~~~~~~~~~~
+    An argument for 'tmdbService' was not provided.
+
+src/routes/sources.ts:44:3 - error TS7030: Not all code paths return a value.
+
+44   async (req: AuthRequest, res) => {
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/routes/sources.ts:57:31 - error TS2339: Property 'createSource' does not exist on type 'DatabaseService'.
+
+57       const source = await db.createSource({
+                                 ~~~~~~~~~~~~
+
+src/routes/sources.ts:81:45 - error TS7030: Not all code paths return a value.
+
+81 router.post('/:id/scan', authenticateToken, async (req: AuthRequest, res) => {
+                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/routes/sources.ts:84:29 - error TS2551: Property 'getSourceById' does not exist on type 'DatabaseService'. Did you mean 'getSources'?
+
+84     const source = await db.getSourceById(sourceId);
+                               ~~~~~~~~~~~~~
+
+  src/services/DatabaseService.ts:71:9
+    71   async getSources(options: { page?: number; limit?: number; search?: string }) {
+               ~~~~~~~~~~
+    'getSources' is declared here.
+
+src/routes/sources.ts:112:30 - error TS2339: Property 'getSourceContent' does not exist on type 'DatabaseService'.
+
+112     const content = await db.getSourceContent(sourceId, {
+                                 ~~~~~~~~~~~~~~~~
+
+src/routes/sources.ts:135:30 - error TS2339: Property 'createScanLog' does not exist on type 'DatabaseService'.
+
+135     const scanLog = await db.createScanLog({
+                                 ~~~~~~~~~~~~~
+
+src/routes/sources.ts:144:7 - error TS2740: Type 'ParsedM3U' is missing the following properties from type 'any[]': length, pop, push, concat, and 28 more.
+
+144       entries = await m3uParser.parseFromUrl(url);
+          ~~~~~~~
+
+src/routes/sources.ts:159:49 - error TS2554: Expected 2-3 arguments, but got 1.
+
+159         const classification = await classifier.classifyContent(entry.title);
+                                                    ~~~~~~~~~~~~~~~
+
+  src/services/ContentClassifierService.ts:58:39
+    58   async classifyContent(name: string, url: string, group?: string): Promise<ClassificationResult> {
+                                             ~~~~~~~~~~~
+    An argument for 'url' was not provided.
+
+src/routes/sources.ts:162:20 - error TS2339: Property 'createMovie' does not exist on type 'DatabaseService'.
+
+162           await db.createMovie({
+                       ~~~~~~~~~~~
+
+src/routes/sources.ts:164:35 - error TS2339: Property 'cleanTitle' does not exist on type 'ClassificationResult'.
+
+164             title: classification.cleanTitle,
+                                      ~~~~~~~~~~
+
+src/routes/sources.ts:167:36 - error TS2339: Property 'tmdbData' does not exist on type 'ClassificationResult'.
+
+167             tmdbId: classification.tmdbData?.id?.toString(),
+                                       ~~~~~~~~
+
+src/routes/sources.ts:168:36 - error TS2339: Property 'omdbData' does not exist on type 'ClassificationResult'.
+
+168             imdbId: classification.omdbData?.imdbID,
+                                       ~~~~~~~~
+
+src/routes/sources.ts:169:34 - error TS2339: Property 'year' does not exist on type 'ClassificationResult'.
+
+169             year: classification.year,
+                                     ~~~~
+
+src/routes/sources.ts:170:35 - error TS2339: Property 'genre' does not exist on type 'ClassificationResult'.
+
+170             genre: classification.genre,
+                                      ~~~~~
+
+src/routes/sources.ts:171:37 - error TS2339: Property 'quality' does not exist on type 'ClassificationResult'.
+
+171             quality: classification.quality,
+                                        ~~~~~~~
+
+src/routes/sources.ts:172:38 - error TS2339: Property 'language' does not exist on type 'ClassificationResult'.
+
+172             language: classification.language,
+                                         ~~~~~~~~
+
+src/routes/sources.ts:176:20 - error TS2339: Property 'createSeries' does not exist on type 'DatabaseService'.
+
+176           await db.createSeries({
+                       ~~~~~~~~~~~~
+
+src/routes/sources.ts:178:35 - error TS2339: Property 'cleanTitle' does not exist on type 'ClassificationResult'.
+
+178             title: classification.cleanTitle,
+                                      ~~~~~~~~~~
+
+src/routes/sources.ts:181:36 - error TS2339: Property 'tmdbData' does not exist on type 'ClassificationResult'.
+
+181             tmdbId: classification.tmdbData?.id?.toString(),
+                                       ~~~~~~~~
+
+src/routes/sources.ts:182:36 - error TS2339: Property 'omdbData' does not exist on type 'ClassificationResult'.
+
+182             imdbId: classification.omdbData?.imdbID,
+                                       ~~~~~~~~
+
+src/routes/sources.ts:183:36 - error TS2339: Property 'season' does not exist on type 'ClassificationResult'.
+
+183             season: classification.season,
+                                       ~~~~~~
+
+src/routes/sources.ts:184:37 - error TS2339: Property 'episode' does not exist on type 'ClassificationResult'.
+
+184             episode: classification.episode,
+                                        ~~~~~~~
+
+src/routes/sources.ts:185:34 - error TS2339: Property 'year' does not exist on type 'ClassificationResult'.
+
+185             year: classification.year,
+                                     ~~~~
+
+src/routes/sources.ts:186:35 - error TS2339: Property 'genre' does not exist on type 'ClassificationResult'.
+
+186             genre: classification.genre,
+                                      ~~~~~
+
+src/routes/sources.ts:187:37 - error TS2339: Property 'quality' does not exist on type 'ClassificationResult'.
+
+187             quality: classification.quality,
+                                        ~~~~~~~
+
+src/routes/sources.ts:188:38 - error TS2339: Property 'language' does not exist on type 'ClassificationResult'.
+
+188             language: classification.language,
+                                         ~~~~~~~~
+
+src/routes/sources.ts:192:20 - error TS2339: Property 'createChannel' does not exist on type 'DatabaseService'.
+
+192           await db.createChannel({
+                       ~~~~~~~~~~~~~
+
+src/routes/sources.ts:194:34 - error TS2339: Property 'cleanTitle' does not exist on type 'ClassificationResult'.
+
+194             name: classification.cleanTitle,
+                                     ~~~~~~~~~~
+
+src/routes/sources.ts:197:38 - error TS2339: Property 'category' does not exist on type 'ClassificationResult'.
+
+197             category: classification.category,
+                                         ~~~~~~~~
+
+src/routes/sources.ts:198:38 - error TS2339: Property 'language' does not exist on type 'ClassificationResult'.
+
+198             language: classification.language,
+                                         ~~~~~~~~
+
+src/routes/sources.ts:199:37 - error TS2339: Property 'quality' does not exist on type 'ClassificationResult'.
+
+199             quality: classification.quality
+                                        ~~~~~~~
+
+src/routes/sources.ts:213:14 - error TS2339: Property 'updateScanLog' does not exist on type 'DatabaseService'.
+
+213     await db.updateScanLog(scanLog.id, {
+                 ~~~~~~~~~~~~~
+
+src/routes/sources.ts:224:14 - error TS2339: Property 'updateScanLog' does not exist on type 'DatabaseService'.
+
+224     await db.updateScanLog(scanLog.id, {
+                 ~~~~~~~~~~~~~
+
+src/routes/sources.ts:224:28 - error TS2304: Cannot find name 'scanLog'.
+
+224     await db.updateScanLog(scanLog.id, {
+                               ~~~~~~~
+
+src/routes/sources.ts:227:14 - error TS18046: 'error' is of type 'unknown'.
+
+227       error: error.message
+                 ~~~~~
+
+src/server.ts:4:25 - error TS7016: Could not find a declaration file for module 'compression'. '/opt/lens/node_modules/compression/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/compression` if it exists or add a new declaration (.d.ts) file containing `declare module 'compression';`
+
+4 import compression from 'compression';
+                          ~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:86:7 - error TS2412: Type 'Quality | undefined' is not assignable to type 'Quality' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'Quality'.
+
+86       result.metadata.quality = this.detectQuality(name);
+         ~~~~~~~~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:87:7 - error TS2412: Type 'string | undefined' is not assignable to type 'string' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type 'string'.
+
+87       result.metadata.language = this.detectLanguage(name, group);
+         ~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:136:7 - error TS2375: Type '{ type: "series"; year: number | undefined; season: number; episode: number; }' is not assignable to type '{ type: "channel" | "movie" | "series"; year?: number; season?: number; episode?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+136       return {
+          ~~~~~~
+
+src/services/ContentClassifierService.ts:139:26 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+139         season: parseInt(seasonEpisodeMatch[1] || seasonEpisodeMatch[3] || seasonEpisodeMatch[5]),
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:146:7 - error TS2375: Type '{ type: "series"; year: number | undefined; }' is not assignable to type '{ type: "channel" | "movie" | "series"; year?: number; season?: number; episode?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+146       return { type: 'series', year };
+          ~~~~~~
+
+src/services/ContentClassifierService.ts:151:7 - error TS2375: Type '{ type: "movie"; year: number | undefined; }' is not assignable to type '{ type: "channel" | "movie" | "series"; year?: number; season?: number; episode?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+151       return { type: 'movie', year };
+          ~~~~~~
+
+src/services/ContentClassifierService.ts:172:11 - error TS2375: Type '{ title: string; year: number | undefined; }' is not assignable to type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+172           metadata: {
+              ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:10:3
+    10   metadata: {
+         ~~~~~~~~
+    The expected type comes from property 'metadata' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:193:11 - error TS2412: Type 'string | null | undefined' is not assignable to type 'string | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+
+193           poster: tmdbDetails?.poster_path ? this.tmdbService.getImageUrl(tmdbDetails.poster_path) : omdbMovie?.Poster,
+              ~~~~~~
+
+  src/services/ContentClassifierService.ts:15:5
+    15     poster?: string;
+           ~~~~~~
+    The expected type comes from property 'poster' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:194:11 - error TS2412: Type 'string | null | undefined' is not assignable to type 'string | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+
+194           backdrop: tmdbDetails?.backdrop_path ? this.tmdbService.getImageUrl(tmdbDetails.backdrop_path) : undefined,
+              ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:16:5
+    16     backdrop?: string;
+           ~~~~~~~~
+    The expected type comes from property 'backdrop' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:196:11 - error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+
+196           rating: tmdbDetails?.vote_average || this.omdbService.parseRating(omdbMovie?.imdbRating || ''),
+              ~~~~~~
+
+  src/services/ContentClassifierService.ts:18:5
+    18     rating?: number;
+           ~~~~~~
+    The expected type comes from property 'rating' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:197:11 - error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+
+197           duration: tmdbDetails?.runtime || this.omdbService.parseRuntime(omdbMovie?.Runtime || ''),
+              ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:19:5
+    19     duration?: number;
+           ~~~~~~~~
+    The expected type comes from property 'duration' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:205:9 - error TS2375: Type '{ tmdb: TMDBMovie | undefined; omdb: OMDBMovie | undefined; }' is not assignable to type '{ tmdb?: TMDBMovie | TMDBSeries; omdb?: OMDBMovie; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'tmdb' are incompatible.
+    Type 'TMDBMovie | undefined' is not assignable to type 'TMDBMovie | TMDBSeries'.
+      Type 'undefined' is not assignable to type 'TMDBMovie | TMDBSeries'.
+
+205         sources: {
+            ~~~~~~~
+
+  src/services/ContentClassifierService.ts:35:3
+    35   sources: {
+         ~~~~~~~
+    The expected type comes from property 'sources' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:215:9 - error TS2375: Type '{ title: string; year: number | undefined; }' is not assignable to type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+215         metadata: { title, year },
+            ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:10:3
+    10   metadata: {
+         ~~~~~~~~
+    The expected type comes from property 'metadata' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:235:11 - error TS2375: Type '{ title: string; year: number | undefined; }' is not assignable to type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+235           metadata: {
+              ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:10:3
+    10   metadata: {
+         ~~~~~~~~
+    The expected type comes from property 'metadata' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:256:11 - error TS2412: Type 'string | null | undefined' is not assignable to type 'string | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+
+256           poster: tmdbDetails?.poster_path ? this.tmdbService.getImageUrl(tmdbDetails.poster_path) : omdbSeries?.Poster,
+              ~~~~~~
+
+  src/services/ContentClassifierService.ts:15:5
+    15     poster?: string;
+           ~~~~~~
+    The expected type comes from property 'poster' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:257:11 - error TS2412: Type 'string | null | undefined' is not assignable to type 'string | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+
+257           backdrop: tmdbDetails?.backdrop_path ? this.tmdbService.getImageUrl(tmdbDetails.backdrop_path) : undefined,
+              ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:16:5
+    16     backdrop?: string;
+           ~~~~~~~~
+    The expected type comes from property 'backdrop' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:259:11 - error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+
+259           rating: tmdbDetails?.vote_average || this.omdbService.parseRating(omdbSeries?.imdbRating || ''),
+              ~~~~~~
+
+  src/services/ContentClassifierService.ts:18:5
+    18     rating?: number;
+           ~~~~~~
+    The expected type comes from property 'rating' which is declared here on type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }'
+
+src/services/ContentClassifierService.ts:269:9 - error TS2375: Type '{ tmdb: TMDBSeries | undefined; omdb: OMDBMovie | undefined; }' is not assignable to type '{ tmdb?: TMDBMovie | TMDBSeries; omdb?: OMDBMovie; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'tmdb' are incompatible.
+    Type 'TMDBSeries | undefined' is not assignable to type 'TMDBMovie | TMDBSeries'.
+      Type 'undefined' is not assignable to type 'TMDBMovie | TMDBSeries'.
+
+269         sources: {
+            ~~~~~~~
+
+  src/services/ContentClassifierService.ts:35:3
+    35   sources: {
+         ~~~~~~~
+    The expected type comes from property 'sources' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:279:9 - error TS2375: Type '{ title: string; year: number | undefined; }' is not assignable to type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'year' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+279         metadata: { title, year },
+            ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:10:3
+    10   metadata: {
+         ~~~~~~~~
+    The expected type comes from property 'metadata' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:291:7 - error TS2375: Type '{ title: string; category: string | undefined; group: string | undefined; }' is not assignable to type '{ title: string; originalTitle?: string; year?: number; overview?: string; poster?: string; backdrop?: string; genres?: string[]; rating?: number; duration?: number; quality?: Quality; language?: string; ... 9 more ...; group?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'category' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+
+291       metadata: {
+          ~~~~~~~~
+
+  src/services/ContentClassifierService.ts:10:3
+    10   metadata: {
+         ~~~~~~~~
+    The expected type comes from property 'metadata' which is declared here on type 'ClassificationResult'
+
+src/services/ContentClassifierService.ts:336:7 - error TS2532: Object is possibly 'undefined'.
+
+336       matrix[0][j] = j;
+          ~~~~~~~~~
+
+src/services/ContentClassifierService.ts:342:11 - error TS2532: Object is possibly 'undefined'.
+
+342           matrix[i][j] = matrix[i - 1][j - 1];
+              ~~~~~~~~~
+
+src/services/ContentClassifierService.ts:342:11 - error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+
+342           matrix[i][j] = matrix[i - 1][j - 1];
+              ~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:342:26 - error TS2532: Object is possibly 'undefined'.
+
+342           matrix[i][j] = matrix[i - 1][j - 1];
+                             ~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:344:11 - error TS2532: Object is possibly 'undefined'.
+
+344           matrix[i][j] = Math.min(
+              ~~~~~~~~~
+
+src/services/ContentClassifierService.ts:345:13 - error TS2532: Object is possibly 'undefined'.
+
+345             matrix[i - 1][j - 1] + 1,
+                ~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:345:13 - error TS2532: Object is possibly 'undefined'.
+
+345             matrix[i - 1][j - 1] + 1,
+                ~~~~~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:346:13 - error TS2532: Object is possibly 'undefined'.
+
+346             matrix[i][j - 1] + 1,
+                ~~~~~~~~~
+
+src/services/ContentClassifierService.ts:346:13 - error TS2532: Object is possibly 'undefined'.
+
+346             matrix[i][j - 1] + 1,
+                ~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:347:13 - error TS2532: Object is possibly 'undefined'.
+
+347             matrix[i - 1][j] + 1
+                ~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:347:13 - error TS2532: Object is possibly 'undefined'.
+
+347             matrix[i - 1][j] + 1
+                ~~~~~~~~~~~~~~~~
+
+src/services/ContentClassifierService.ts:353:5 - error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+
+353     return matrix[str2.length][str1.length];
+        ~~~~~~
+
+src/services/ContentClassifierService.ts:353:12 - error TS2532: Object is possibly 'undefined'.
+
+353     return matrix[str2.length][str1.length];
+               ~~~~~~~~~~~~~~~~~~~
+
+src/services/DatabaseService.ts:19:21 - error TS2345: Argument of type '"query"' is not assignable to parameter of type 'never'.
+
+19     this.prisma.$on('query', (e) => {
+                       ~~~~~~~
+
+src/services/DatabaseService.ts:21:18 - error TS2339: Property 'query' does not exist on type 'never'.
+
+21         query: e.query,
+                    ~~~~~
+
+src/services/DatabaseService.ts:22:19 - error TS2339: Property 'params' does not exist on type 'never'.
+
+22         params: e.params,
+                     ~~~~~~
+
+src/services/DatabaseService.ts:23:21 - error TS2339: Property 'duration' does not exist on type 'never'.
+
+23         duration: e.duration,
+                       ~~~~~~~~
+
+src/services/DatabaseService.ts:27:21 - error TS2345: Argument of type '"error"' is not assignable to parameter of type 'never'.
+
+27     this.prisma.$on('error', (e) => {
+                       ~~~~~~~
+
+src/services/OMDBService.ts:1:38 - error TS2307: Cannot find module 'axios' or its corresponding type declarations.
+
+1 import axios, { AxiosInstance } from 'axios';
+                                       ~~~~~~~
+
+src/services/OMDBService.ts:55:23 - error TS2339: Property 'omdb' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+55       baseURL: config.omdb.baseUrl,
+                         ~~~~
+
+src/services/OMDBService.ts:58:24 - error TS2339: Property 'omdb' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+58         apikey: config.omdb.apiKey,
+                          ~~~~
+
+src/services/OMDBService.ts:63:43 - error TS7006: Parameter 'config' implicitly has an 'any' type.
+
+63     this.client.interceptors.request.use((config) => {
+                                             ~~~~~~
+
+src/services/OMDBService.ts:72:8 - error TS7006: Parameter 'response' implicitly has an 'any' type.
+
+72       (response) => {
+          ~~~~~~~~
+
+src/services/OMDBService.ts:79:8 - error TS7006: Parameter 'error' implicitly has an 'any' type.
+
+79       (error) => {
+          ~~~~~
+
+src/services/OMDBService.ts:201:31 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+201     return match ? parseFloat(match[1]) : null;
+                                  ~~~~~~~~
+
+src/services/OMDBService.ts:209:29 - error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+
+209     return match ? parseInt(match[1]) : null;
+                                ~~~~~~~~
+
+src/services/RedisService.ts:11:19 - error TS2339: Property 'redisUrl' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+11       url: config.redisUrl,
+                     ~~~~~~~~
+
+src/services/TMDBService.ts:1:38 - error TS2307: Cannot find module 'axios' or its corresponding type declarations.
+
+1 import axios, { AxiosInstance } from 'axios';
+                                       ~~~~~~~
+
+src/services/TMDBService.ts:81:23 - error TS2339: Property 'tmdb' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+81       baseURL: config.tmdb.baseUrl,
+                         ~~~~
+
+src/services/TMDBService.ts:84:25 - error TS2339: Property 'tmdb' does not exist on type '{ readonly port: number; readonly nodeEnv: "development" | "production" | "test"; readonly corsOrigin: string[]; readonly database: { readonly url: string; readonly ssl: boolean; readonly connectionTimeout: number; readonly maxConnections: number; readonly idleTimeout: number; }; ... 8 more ...; readonly performance...'.
+
+84         api_key: config.tmdb.apiKey,
+                           ~~~~
+
+src/services/TMDBService.ts:90:43 - error TS7006: Parameter 'config' implicitly has an 'any' type.
+
+90     this.client.interceptors.request.use((config) => {
+                                             ~~~~~~
+
+src/services/TMDBService.ts:99:8 - error TS7006: Parameter 'response' implicitly has an 'any' type.
+
+99       (response) => {
+          ~~~~~~~~
+
+src/services/TMDBService.ts:106:8 - error TS7006: Parameter 'error' implicitly has an 'any' type.
+
+106       (error) => {
+           ~~~~~
+
+
+Found 114 errors in 13 files.
+
+Errors  Files
+     2  src/config/config.ts:1
+     5  src/middleware/auth.ts:14
+     1  src/middleware/errorHandler.ts:4
+     2  src/middleware/rateLimiter.ts:8
+    13  src/parsers/M3UParser.ts:1
+     1  src/routes/contabo.ts:8
+    36  src/routes/sources.ts:11
+     1  src/server.ts:4
+    33  src/services/ContentClassifierService.ts:86
+     5  src/services/DatabaseService.ts:19
+     8  src/services/OMDBService.ts:1
+     1  src/services/RedisService.ts:11
+     6  src/services/TMDBService.ts:1
+root@vmi2784375:~/LENS# ^C

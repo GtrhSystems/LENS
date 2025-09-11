@@ -5,18 +5,22 @@ import { Request, Response, NextFunction } from 'express';
 const redisService = new RedisService();
 
 const rateLimiter = new RateLimiterRedis({
-  storeClient: redisService.getClient(),
-  keyPrefix: 'middleware',
-  points: 100,
-  duration: 60,
+  storeClient: redisService.client,
+  keyPrefix: 'rl',
+  points: config.performance.rateLimitMax,
+  duration: Math.floor(config.performance.rateLimitWindowMs / 1000)
 });
 
-export const rateLimiterMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const rateLimitMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await rateLimiter.consume(req.ip);
+    const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+    await rateLimiter.consume(clientIp);
     next();
   } catch (rejRes) {
-    res.status(429).json({ error: 'Too Many Requests' });
+    res.status(429).json({
+      error: 'Too Many Requests',
+      retryAfter: Math.round(rejRes.msBeforeNext / 1000) || 1
+    });
   }
 };
 

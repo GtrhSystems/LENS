@@ -81,33 +81,30 @@ export class TMDBService {
       baseURL: config.tmdb.baseUrl,
       timeout: 10000,
       params: {
-        api_key: config.tmdb.apiKey,
-        language: 'es-ES',
-      },
+        api_key: config.tmdb.apiKey
+      }
     });
 
-    // Interceptor para logging
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use((config: any) => {
       logger.debug('TMDB Request:', {
         url: config.url,
-        params: config.params,
+        params: config.params
       });
       return config;
     });
 
     this.client.interceptors.response.use(
-      (response) => {
+      (response: any) => {
         logger.debug('TMDB Response:', {
-          url: response.config.url,
           status: response.status,
+          data: response.data?.results?.length || 'N/A'
         });
         return response;
       },
-      (error) => {
+      (error: any) => {
         logger.error('TMDB Error:', {
-          url: error.config?.url,
-          status: error.response?.status,
           message: error.message,
+          status: error.response?.status
         });
         return Promise.reject(error);
       }

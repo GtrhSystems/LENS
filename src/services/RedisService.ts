@@ -8,35 +8,22 @@ export class RedisService {
 
   constructor() {
     this.client = createClient({
-      url: config.redisUrl,
-      socket: {
-        reconnectStrategy: (retries) => {
-          if (retries > 10) {
-            logger.error('Máximo número de reintentos de Redis alcanzado');
-            return new Error('Máximo número de reintentos alcanzado');
-          }
-          return Math.min(retries * 50, 1000);
-        },
-      },
+      url: config.redis.url,
+      password: config.redis.password,
+      database: config.redis.db
     });
 
-    this.client.on('error', (error) => {
-      logger.error('Error en Redis:', error);
+    this.client.on('error', (err) => {
+      logger.error('Redis Client Error:', err);
     });
 
     this.client.on('connect', () => {
-      logger.info('Conectando a Redis...');
+      logger.info('Redis Client Connected');
     });
+  }
 
-    this.client.on('ready', () => {
-      logger.info('Redis listo para usar');
-      this.isConnected = true;
-    });
-
-    this.client.on('end', () => {
-      logger.info('Conexión a Redis cerrada');
-      this.isConnected = false;
-    });
+  getClient() {
+    return this.client;
   }
 
   async connect(): Promise<void> {

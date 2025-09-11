@@ -8,7 +8,9 @@ import Joi from 'joi';
 
 const router = Router();
 const m3uParser = new M3UParser();
-const classifier = new ContentClassifierService();
+const omdbService = new OMDBService();
+const tmdbService = new TMDBService();
+const classifier = new ContentClassifierService(omdbService, tmdbService);
 const db = new DatabaseService();
 
 // Validation schemas
@@ -135,87 +137,93 @@ async function scanSource(sourceId: string, url: string, type: string, credentia
     const scanLog = await db.createScanLog({
       sourceId,
       status: 'running',
-      startedAt: new Date()
+      startedAt: new Date(),
+      totalEntries: 0,
+      processedEntries: 0,
+      errors: []
     });
-    
-    let entries: any[] = [];
-    
-    if (type === 'm3u') {
-      entries = await m3uParser.parseFromUrl(url);
-    } else if (type === 'xtream') {
-      // TODO: Implement Xtream codes parser
-      entries = await parseXtreamCodes(url, credentials);
-    } else if (type === 'archivoloca') {
-      // TODO: Implement Archivoloca parser
-      entries = await parseArchivoloca(url);
-    }
-    
-    logger.info(`Found ${entries.length} entries for source ${sourceId}`);
-    
-    // Process and classify each entry
-    let processed = 0;
-    for (const entry of entries) {
-      try {
-        const classification = await classifier.classifyContent(entry.title);
-        
-        if (classification.type === 'movie') {
-          await db.createMovie({
-            sourceId,
-            title: classification.cleanTitle,
-            originalTitle: entry.title,
-            url: entry.url,
-            tmdbId: classification.tmdbData?.id?.toString(),
-            imdbId: classification.omdbData?.imdbID,
-            year: classification.year,
-            genre: classification.genre,
-            quality: classification.quality,
-            language: classification.language,
-            confidence: classification.confidence
-          });
-        } else if (classification.type === 'series') {
-          await db.createSeries({
-            sourceId,
-            title: classification.cleanTitle,
-            originalTitle: entry.title,
-            url: entry.url,
-            tmdbId: classification.tmdbData?.id?.toString(),
-            imdbId: classification.omdbData?.imdbID,
-            season: classification.season,
-            episode: classification.episode,
-            year: classification.year,
-            genre: classification.genre,
-            quality: classification.quality,
-            language: classification.language,
-            confidence: classification.confidence
-          });
-        } else {
-          await db.createChannel({
-            sourceId,
-            name: classification.cleanTitle,
-            originalName: entry.title,
-            url: entry.url,
-            category: classification.category,
-            language: classification.language,
-            quality: classification.quality
-          });
-        }
-        
-        processed++;
-        if (processed % 100 === 0) {
-          logger.info(`Processed ${processed}/${entries.length} entries for source ${sourceId}`);
-        }
-      } catch (error) {
-        logger.error(`Error processing entry ${entry.title}:`, error);
+
+    try {
+      let entries: M3UEntry[];
+      if (url.startsWith('http')) {
+        const parsedResult = await m3uParser.parseFromUrl(url);
+        entries = parsedResult.entries;
+      } else {
+        entries = await m3uParser.parseFromString(url);
       }
+
+      let processedCount = 0;
+      const errors: string[] = [];
+
+      for (const entry of entries) {
+        try {
+          const classification = await classifier.classifyContent(entry.name, entry.url, entry.group);
+
+          if (classification.type === 'movie') {
+            await db.createMovie({
+              sourceId,
+              title: classification.metadata.title,
+              url: entry.url,
+              quality: classification.metadata.quality,
+              tmdbId: classification.sources?.tmdb?.id?.toString(),
+              imdbId: classification.sources?.omdb?.imdbID,
+              year: classification.metadata.year,
+              genre: classification.metadata.genres?.join(', '),
+              language: classification.metadata.language,
+              createdAt: new Date()
+            });
+          } else if (classification.type === 'series') {
+            await db.createSeries({
+              sourceId,
+              title: classification.metadata.title,
+              url: entry.url,
+              quality: classification.metadata.quality,
+              tmdbId: classification.sources?.tmdb?.id?.toString(),
+              imdbId: classification.sources?.omdb?.imdbID,
+              season: classification.metadata.season,
+              episode: classification.metadata.episode,
+              year: classification.metadata.year,
+              genre: classification.metadata.genres?.join(', '),
+              language: classification.metadata.language,
+              createdAt: new Date()
+            });
+          } else {
+            await db.createChannel({
+              sourceId,
+              name: classification.metadata.title,
+              url: entry.url,
+              logo: entry.logo,
+              category: classification.metadata.category,
+              language: classification.metadata.language,
+              quality: classification.metadata.quality,
+              createdAt: new Date()
+            });
+          }
+
+          processedCount++;
+        } catch (entryError) {
+          const errorMessage = entryError instanceof Error ? entryError.message : 'Unknown error';
+          errors.push(`Error processing ${entry.name}: ${errorMessage}`);
+        }
+      }
+
+      await db.updateScanLog(scanLog.id, {
+        status: 'completed',
+        completedAt: new Date(),
+        totalEntries: entries.length,
+        processedEntries: processedCount,
+        errors
+      });
+
+      res.json({ message: 'Scan completed successfully', processedCount, errors });
+    } catch (error) {
+      await db.updateScanLog(scanLog.id, {
+        status: 'failed',
+        completedAt: new Date(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
-    
-    // Update scan log
-    await db.updateScanLog(scanLog.id, {
-      status: 'completed',
-      completedAt: new Date(),
-      totalEntries: entries.length,
-      processedEntries: processed
-    });
     
     logger.info(`Completed scan for source ${sourceId}: ${processed}/${entries.length} entries processed`);
   } catch (error) {

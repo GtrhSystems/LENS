@@ -5,7 +5,7 @@ import { rateLimiter } from '../middleware/rateLimiter';
 const router = Router();
 
 router.use(authenticateToken);
-router.use(rateLimiter);
+router.use(rateLimitMiddleware);
 
 router.get('/status', (req, res) => {
   res.json({ status: 'Contabo integration ready' });

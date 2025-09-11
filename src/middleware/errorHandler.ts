@@ -6,42 +6,31 @@ export const errorHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
-  logger.error('Error no manejado:', {
+): void => {
+  logger.error('Error occurred:', {
     error: error.message,
     stack: error.stack,
     url: req.url,
-    method: req.method,
-    ip: req.ip,
+    method: req.method
   });
 
-  // Error de validación de Joi
-  if (error.isJoi) {
-    return res.status(400).json({
+  if (error.name === 'ValidationError') {
+    res.status(400).json({
       error: 'Validation Error',
-      details: error.details.map((detail: any) => detail.message),
+      details: error.details
     });
+    return;
   }
 
-  // Error de Prisma
-  if (error.code === 'P2002') {
-    return res.status(409).json({
-      error: 'Duplicate entry',
-      message: 'El recurso ya existe',
+  if (error.name === 'UnauthorizedError') {
+    res.status(401).json({
+      error: 'Unauthorized'
     });
+    return;
   }
 
-  // Error de JWT
-  if (error.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      error: 'Invalid token',
-      message: 'Token de autenticación inválido',
-    });
-  }
-
-  // Error genérico
-  res.status(error.status || 500).json({
+  res.status(500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Algo salió mal',
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
   });
 };

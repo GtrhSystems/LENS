@@ -7,25 +7,20 @@ export class DatabaseService {
 
   constructor() {
     this.prisma = new PrismaClient({
-      log: [
-        { emit: 'event', level: 'query' },
-        { emit: 'event', level: 'error' },
-        { emit: 'event', level: 'info' },
-        { emit: 'event', level: 'warn' },
-      ],
+      log: ['query', 'info', 'warn', 'error']
     });
 
-    // Configurar eventos de logging
-    this.prisma.$on('query', (e) => {
-      logger.debug('Query ejecutada', {
+    // Event listeners con tipos correctos
+    this.prisma.$on('query' as any, (e: any) => {
+      logger.debug('Database query:', {
         query: e.query,
         params: e.params,
-        duration: e.duration,
+        duration: e.duration
       });
     });
 
-    this.prisma.$on('error', (e) => {
-      logger.error('Error en base de datos', e);
+    this.prisma.$on('error' as any, (e: any) => {
+      logger.error('Database error:', e);
     });
   }
 
@@ -98,5 +93,60 @@ export class DatabaseService {
         pages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async createSource(data: any) {
+    return this.prisma.source.create({ data });
+  }
+
+  async getSourceById(id: number) {
+    return this.prisma.source.findUnique({ where: { id } });
+  }
+
+  async getSourceContent(sourceId: number, options: { page?: number; limit?: number; search?: string }) {
+    const { page = 1, limit = 50, search } = options;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      sourceId,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { title: { contains: search, mode: 'insensitive' as const } }
+        ]
+      })
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.channel.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      this.prisma.channel.count({ where })
+    ]);
+
+    return { items, total, page, limit };
+  }
+
+  async createScanLog(data: any) {
+    return this.prisma.scanLog.create({ data });
+  }
+
+  async updateScanLog(id: number, data: any) {
+    return this.prisma.scanLog.update({ where: { id }, data });
+  }
+
+  async createMovie(data: any) {
+    return this.prisma.movie.create({ data });
+  }
+
+  async createSeries(data: any) {
+    return this.prisma.series.create({ data });
+  }
+
+  async createChannel(data: any) {
+    return this.prisma.channel.create({ data });
   }
 }

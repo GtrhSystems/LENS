@@ -127,44 +127,65 @@ export class M3UParser {
     };
   }
 
-  private parseExtinf(extinfLine: string, urlLine: string): M3UEntry | null {
-    const match = extinfLine.match(M3UParser.EXTINF_REGEX);
-    if (!match) return null;
+  async parseFromString(content: string): Promise<M3UEntry[]> {
+    const lines = content.split('\n').map(line => line.trim());
+    const entries: M3UEntry[] = [];
 
-    const duration = parseFloat(match[1]);
-    const info = match[2];
-    
-    // Extraer atributos
-    const attributes: Record<string, string> = {};
-    let attributeMatch;
-    
-    while ((attributeMatch = M3UParser.ATTRIBUTE_REGEX.exec(info)) !== null) {
-      attributes[attributeMatch[1].toLowerCase()] = attributeMatch[2];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line && line.startsWith('#EXTINF:')) {
+        const nextLine = lines[i + 1];
+        if (nextLine && !nextLine.startsWith('#')) {
+          const entry = this.parseExtinf(line, nextLine);
+          if (entry) {
+            entries.push(entry);
+          }
+        }
+      }
     }
 
-    // Extraer nombre (después de los atributos)
+    return entries;
+  }
+
+  private parseExtinf(extinf: string, url: string): M3UEntry | null {
+    const match = extinf.match(M3UParser.EXTINF_REGEX);
+    if (!match || !match[1]) return null;
+
+    const duration = parseFloat(match[1]) || 0;
+    const info = match[2];
+    if (!info) return null;
+
+    const attributes: Record<string, string> = {};
+    let attributeMatch: RegExpExecArray | null;
+    
+    while ((attributeMatch = M3UParser.ATTRIBUTE_REGEX.exec(info)) !== null) {
+      if (attributeMatch[1] && attributeMatch[2]) {
+        attributes[attributeMatch[1].toLowerCase()] = attributeMatch[2];
+      }
+    }
+
     const nameMatch = info.match(/,\s*(.+)$/);
-    const name = nameMatch ? nameMatch[1].trim() : info.trim();
+    const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : info.trim();
 
     const entry: M3UEntry = {
-      name: this.cleanName(name),
-      url: urlLine.trim(),
-      duration: duration > 0 ? duration : undefined,
+      name,
+      url,
+      duration,
+      group: attributes['group-title'] || undefined,
+      logo: attributes['tvg-logo'] || undefined,
+      id: attributes['tvg-id'] || undefined
     };
 
-    // Mapear atributos conocidos
-    if (attributes['tvg-logo']) entry.logo = attributes['tvg-logo'];
-    if (attributes['group-title']) entry.group = attributes['group-title'];
-    if (attributes['tvg-country']) entry.country = attributes['tvg-country'];
-    if (attributes['tvg-language']) entry.language = attributes['tvg-language'];
-    if (attributes['tvg-id']) entry.tvgId = attributes['tvg-id'];
-    if (attributes['tvg-name']) entry.tvgName = attributes['tvg-name'];
+    // Detectar calidad y categoría
+    const quality = this.detectQuality(name);
+    if (quality) {
+      entry.quality = quality;
+    }
 
-    // Detectar calidad
-    entry.quality = this.detectQuality(name);
-    
-    // Detectar categoría
-    entry.category = this.detectCategory(name, entry.group);
+    const category = this.detectCategory(name, entry.group);
+    if (category) {
+      entry.category = category;
+    }
 
     return entry;
   }

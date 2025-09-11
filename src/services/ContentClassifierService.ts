@@ -19,20 +19,12 @@ export interface ClassificationResult {
     duration?: number;
     quality?: Quality;
     language?: string;
-    country?: string;
-    director?: string;
-    cast?: string[];
-    tmdbId?: number;
-    imdbId?: string;
-    // Para series
-    seasons?: number;
-    episodes?: number;
-    status?: string;
-    // Para canales
     category?: string;
+    season?: number;
+    episode?: number;
     group?: string;
   };
-  sources: {
+  sources?: {
     tmdb?: TMDBMovie | TMDBSeries;
     omdb?: OMDBMovie;
   };
@@ -56,54 +48,32 @@ export class ContentClassifierService {
   }
 
   async classifyContent(name: string, url: string, group?: string): Promise<ClassificationResult> {
-    const cacheKey = `${this.CACHE_PREFIX}${Buffer.from(name + url).toString('base64')}`;
+    const cleanTitle = this.cleanTitle(name);
+    const contentType = this.detectContentType(name, group);
     
-    try {
-      // Verificar cache
-      const cached = await this.redisService.getJson<ClassificationResult>(cacheKey);
-      if (cached) {
-        logger.debug(`Cache hit para clasificación: ${name}`);
-        return cached;
+    let result: ClassificationResult = {
+      type: contentType.type,
+      confidence: 0.8,
+      metadata: {
+        title: cleanTitle,
+        year: contentType.year || undefined,
+        season: contentType.season || undefined,
+        episode: contentType.episode || undefined
       }
+    };
 
-      logger.info(`Clasificando contenido: ${name}`);
-      
-      // Limpiar y analizar el nombre
-      const cleanName = this.cleanTitle(name);
-      const analysis = this.analyzeTitle(cleanName, group);
-      
-      let result: ClassificationResult;
-      
-      if (analysis.type === 'movie') {
-        result = await this.classifyMovie(cleanName, analysis.year);
-      } else if (analysis.type === 'series') {
-        result = await this.classifySeries(cleanName, analysis.year);
-      } else {
-        result = this.classifyChannel(cleanName, group);
-      }
-      
-      // Agregar información adicional del análisis
-      result.metadata.quality = this.detectQuality(name);
-      result.metadata.language = this.detectLanguage(name, group);
-      
-      // Guardar en cache
-      await this.redisService.setJson(cacheKey, result, this.CACHE_TTL);
-      
-      logger.info(`Contenido clasificado como ${result.type} con confianza ${result.confidence}%`);
-      return result;
-    } catch (error) {
-      logger.error(`Error clasificando contenido "${name}":`, error);
-      
-      // Retornar clasificación básica en caso de error
-      return {
-        type: 'channel',
-        confidence: 0,
-        metadata: {
-          title: name,
-        },
-        sources: {},
-      };
+    // Detectar calidad y idioma
+    const quality = this.detectQuality(name);
+    if (quality) {
+      result.metadata.quality = quality;
     }
+    
+    const language = this.detectLanguage(name, group);
+    if (language) {
+      result.metadata.language = language;
+    }
+
+    return result;
   }
 
   private cleanTitle(title: string): string {
@@ -117,42 +87,71 @@ export class ContentClassifierService {
       .trim();
   }
 
-  private analyzeTitle(title: string, group?: string): {
-    type: 'movie' | 'series' | 'channel';
-    year?: number;
-    season?: number;
-    episode?: number;
-  } {
-    const text = `${title} ${group || ''}`.toLowerCase();
-    
-    // Detectar año
-    const yearMatch = title.match(/\b(19|20)\d{2}\b/);
-    const year = yearMatch ? parseInt(yearMatch[0]) : undefined;
-    
-    // Detectar temporada y episodio
-    const seasonEpisodeMatch = text.match(/s(\d+)e(\d+)|temporada\s*(\d+).*episodio\s*(\d+)|cap\w*\s*(\d+)/i);
-    
-    if (seasonEpisodeMatch) {
+  private async enrichWithTMDB(title: string, year?: number, type: 'movie' | 'series' = 'movie'): Promise<ClassificationResult> {
+    try {
+      if (type === 'movie') {
+        const [tmdbDetails, omdbMovie] = await Promise.all([
+          this.tmdbService.searchMovie(title, year),
+          this.omdbService.getMovieByTitle(title, year)
+        ]);
+
+        return {
+          type: 'movie',
+          confidence: tmdbDetails ? 0.9 : 0.6,
+          metadata: {
+            title,
+            originalTitle: tmdbDetails?.original_title,
+            year: year || undefined,
+            overview: tmdbDetails?.overview,
+            poster: tmdbDetails?.poster_path ? this.tmdbService.getImageUrl(tmdbDetails.poster_path) : (omdbMovie?.Poster !== 'N/A' ? omdbMovie?.Poster : undefined),
+            backdrop: tmdbDetails?.backdrop_path ? this.tmdbService.getImageUrl(tmdbDetails.backdrop_path) : undefined,
+            genres: tmdbDetails?.genres?.map(g => g.name),
+            rating: tmdbDetails?.vote_average || (omdbMovie?.imdbRating ? this.omdbService.parseRating(omdbMovie.imdbRating) : undefined),
+            duration: tmdbDetails?.runtime || (omdbMovie?.Runtime ? this.omdbService.parseRuntime(omdbMovie.Runtime) : undefined)
+          },
+          sources: {
+            tmdb: tmdbDetails || undefined,
+            omdb: omdbMovie || undefined
+          }
+        };
+      } else {
+        // Series logic
+        const [tmdbDetails, omdbSeries] = await Promise.all([
+          this.tmdbService.searchSeries(title, year),
+          this.omdbService.getSeriesByTitle(title, year)
+        ]);
+
+        return {
+          type: 'series',
+          confidence: tmdbDetails ? 0.9 : 0.6,
+          metadata: { title, year: year || undefined },
+          sources: {
+            tmdb: tmdbDetails || undefined,
+            omdb: omdbSeries || undefined
+          }
+        };
+      }
+    } catch (error) {
+      logger.error('Error enriching with TMDB:', error);
       return {
-        type: 'series',
-        year,
-        season: parseInt(seasonEpisodeMatch[1] || seasonEpisodeMatch[3] || seasonEpisodeMatch[5]),
-        episode: parseInt(seasonEpisodeMatch[2] || seasonEpisodeMatch[4] || '1'),
+        type,
+        confidence: 0.5,
+        metadata: { title, year: year || undefined }
       };
     }
-    
-    // Patrones para series
-    if (/\b(series|temporada|season|episode|cap\w*\s*\d+)\b/i.test(text)) {
-      return { type: 'series', year };
-    }
-    
-    // Patrones para películas
-    if (/\b(movie|pelicula|film|cinema)\b/i.test(text) || year) {
-      return { type: 'movie', year };
-    }
-    
-    // Por defecto es canal
-    return { type: 'channel' };
+  }
+
+  private async enrichChannel(title: string, group?: string): Promise<ClassificationResult> {
+    const category = this.detectCategory(title, group);
+    return {
+      type: 'channel',
+      confidence: 0.7,
+      metadata: {
+        title,
+        category: category || undefined,
+        group: group || undefined
+      }
+    };
   }
 
   private async classifyMovie(title: string, year?: number): Promise<ClassificationResult> {
@@ -326,31 +325,44 @@ export class ContentClassifierService {
   }
 
   private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = [];
-    
+    const matrix: (number | undefined)[][] = [];
+
     for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
+      matrix[i] = [];
+      if (matrix[i]) {
+        matrix[i][0] = i;
+      }
     }
-    
+
     for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
+      if (matrix[0]) {
+        matrix[0][j] = j;
+      }
     }
-    
+
     for (let i = 1; i <= str2.length; i++) {
       for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
+        if (str1[j - 1] === str2[i - 1]) {
+          if (matrix[i] && matrix[i - 1] && matrix[i - 1][j - 1] !== undefined) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          }
         } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
+          const substitution = matrix[i - 1]?.[j - 1] ?? 0;
+          const insertion = matrix[i]?.[j - 1] ?? 0;
+          const deletion = matrix[i - 1]?.[j] ?? 0;
+          
+          if (matrix[i]) {
+            matrix[i][j] = Math.min(
+              substitution + 1,
+              insertion + 1,
+              deletion + 1
+            );
+          }
         }
       }
     }
-    
-    return matrix[str2.length][str1.length];
+
+    return matrix[str2.length]?.[str1.length] ?? 0;
   }
 
   private detectQuality(name: string): Quality | undefined {

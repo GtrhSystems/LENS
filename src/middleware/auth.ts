@@ -11,22 +11,59 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    res.status(401).json({ error: 'Access token required' });
+    return;
   }
 
-  jwt.verify(token, config.JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, config.security.jwt.secret, (err: any, user: any) => {
     if (err) {
-      logger.warn('Invalid token attempt', { token: token.substring(0, 10) + '...' });
-      return res.status(403).json({ error: 'Invalid token' });
+      res.status(403).json({ error: 'Invalid or expired token' });
+      return;
     }
     req.user = user;
     next();
   });
+};
+
+export const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    
+    if (!roles.includes(authReq.user.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+    
+    next();
+  };
+};
+
+export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      next();
+      return;
+    }
+
+    jwt.verify(token, config.security.jwt.secret, (err: any, user: any) => {
+      if (!err) {
+        (req as AuthRequest).user = user;
+      }
+      next();
+    });
+  };
 };
 
 export const validateRequest = (schema: any) => {
