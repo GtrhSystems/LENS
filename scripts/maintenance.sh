@@ -16,8 +16,11 @@ clean_logs() {
 # Función para optimizar base de datos
 optimize_db() {
     echo "🗄️ Optimizando base de datos..."
-    docker-compose -f docker-compose.contabo.yml exec postgres psql -U lens -d lens -c "VACUUM ANALYZE;"
-    docker-compose -f docker-compose.contabo.yml exec postgres psql -U lens -d lens -c "REINDEX DATABASE lens;"
+    # Cambiar referencias similares a docker-compose.yml
+    docker-compose exec postgres psql -U lens -d lens_db -c "VACUUM ANALYZE;"
+    docker-compose exec postgres psql -U lens -d lens_db -c "REINDEX DATABASE lens;"
+    docker-compose exec redis redis-cli FLUSHDB
+    docker-compose ps
 }
 
 # Función para limpiar caché Redis

@@ -2,116 +2,236 @@
 
 # LENS - Sistema de Gestión de Contenido Multimedia
 # Script de instalación automática para Ubuntu 24.04 LTS
-# Versión: 2.0
+# Versión: 4.0 - CORREGIDO Y MEJORADO
 # Autor: GtrhSystems
 
-set -e  # Salir si hay errores
+set -euo pipefail
 
-echo "🚀 Iniciando instalación de LENS v2.0..."
-echo "📋 Sistema objetivo: Ubuntu 24.04 LTS"
-echo "🏢 Optimizado para Contabo VPS"
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
+log_success() { echo -e "${GREEN}✅ $1${NC}"; }
+log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+log_error() { echo -e "${RED}❌ $1${NC}"; }
+
+# Variables globales
+PROJECT_DIR="/opt/lens"
+CURRENT_DIR="$(pwd)"
+INSTALL_LOG="/tmp/lens_install.log"
+
+log_info "🚀 Iniciando instalación de LENS v4.0..."
+log_info "📋 Sistema objetivo: Ubuntu 24.04 LTS"
+log_info "🏢 Optimizado para Contabo VPS"
 echo ""
+
+# Función para logging con timestamp
+log_with_timestamp() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$INSTALL_LOG"
+}
 
 # Verificar que se ejecuta como root
 if [[ $EUID -ne 0 ]]; then
-   echo "❌ Este script debe ejecutarse como root (sudo)" 
+   log_error "Este script debe ejecutarse como root (sudo)"
    exit 1
 fi
 
+# Verificar Ubuntu 24.04
+if ! grep -q "Ubuntu 24.04" /etc/os-release; then
+    log_warning "Este script está optimizado para Ubuntu 24.04 LTS"
+    read -p "¿Continuar de todos modos? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+fi
+
+# Función para verificar si un comando existe
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Función para generar contraseñas seguras
+generate_password() {
+    openssl rand -base64 32 | tr -d "=+/" | cut -c1-25
+}
+
+# Función para verificar servicios
+verify_service() {
+    local service_name="$1"
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if systemctl is-active --quiet "$service_name"; then
+            log_success "Servicio $service_name está activo"
+            return 0
+        fi
+        log_info "Esperando servicio $service_name... (intento $attempt/$max_attempts)"
+        sleep 2
+        ((attempt++))
+    done
+    
+    log_error "Servicio $service_name no se pudo iniciar después de $max_attempts intentos"
+    return 1
+}
+
+# Crear directorio de logs
+mkdir -p "$(dirname "$INSTALL_LOG")"
+log_with_timestamp "Iniciando instalación de LENS"
+
 # Actualizar sistema
-echo "📦 Actualizando sistema..."
+log_info "Actualizando sistema..."
 apt update && apt upgrade -y
 
 # Instalar paquetes esenciales
-echo "🔧 Instalando paquetes esenciales..."
-apt install -y curl git wget gnupg2 software-properties-common apt-transport-https ca-certificates lsb-release ufw
+log_info "Instalando paquetes esenciales..."
+apt install -y curl git wget gnupg2 software-properties-common \
+    apt-transport-https ca-certificates lsb-release ufw \
+    build-essential python3-pip jq unzip postgresql-client \
+    openssl certbot nginx
 
-# Instalar Docker
-echo "🐳 Instalando Docker..."
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt update
-apt install -y docker-ce docker-ce-cli containerd.io
+# Instalar Docker usando el método oficial actualizado
+log_info "Instalando Docker..."
+if ! command_exists docker; then
+    # Remover versiones antiguas
+    apt remove -y docker docker-engine docker.io containerd runc || true
+    
+    # Agregar repositorio oficial de Docker
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+    
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    
+    apt update
+    apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Iniciar y habilitar Docker
+    systemctl start docker
+    systemctl enable docker
+    
+    # Verificar instalación
+    if verify_service docker; then
+        log_success "Docker instalado y configurado correctamente"
+    else
+        log_error "Error al instalar Docker"
+        exit 1
+    fi
+else
+    log_info "Docker ya está instalado"
+fi
 
-# Instalar Docker Compose
-echo "🔗 Instalando Docker Compose..."
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-
-# Iniciar y habilitar Docker
-systemctl start docker
-systemctl enable docker
-usermod -aG docker $USER
-
-# Instalar PostgreSQL
-echo "🗄️ Instalando PostgreSQL..."
-apt install -y postgresql postgresql-contrib
-systemctl start postgresql
-systemctl enable postgresql
-
-# Instalar Node.js 20 LTS
-echo "📦 Instalando Node.js 20 LTS..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
+# Instalar Node.js 22 LTS
+log_info "Instalando Node.js 22 LTS..."
+if ! command_exists node || [[ $(node -v | cut -d'v' -f2 | cut -d'.' -f1) -lt 20 ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    apt install -y nodejs
+    
+    # Verificar instalación
+    if command_exists node && command_exists npm; then
+        node_version=$(node -v)
+        npm_version=$(npm -v)
+        log_success "Node.js $node_version y npm $npm_version instalados"
+    else
+        log_error "Error al instalar Node.js"
+        exit 1
+    fi
+else
+    log_info "Node.js ya está instalado y actualizado"
+fi
 
 # Crear usuario lens
-echo "👤 Creando usuario lens..."
-useradd -m -s /bin/bash lens || true
-usermod -aG sudo lens
-usermod -aG docker lens
+log_info "Configurando usuario lens..."
+if ! id "lens" &>/dev/null; then
+    useradd -m -s /bin/bash lens
+    usermod -aG sudo lens
+    usermod -aG docker lens
+    log_success "Usuario lens creado"
+else
+    log_info "Usuario lens ya existe"
+    # Asegurar que esté en los grupos correctos
+    usermod -aG sudo lens
+    usermod -aG docker lens
+fi
 
 # Crear directorio del proyecto
-echo "📁 Configurando directorio del proyecto..."
-mkdir -p /opt/lens
-chown lens:lens /opt/lens
-chmod 755 /opt/lens
+log_info "Configurando directorio del proyecto..."
+mkdir -p "$PROJECT_DIR"
+chown lens:lens "$PROJECT_DIR"
+chmod 755 "$PROJECT_DIR"
+
+# Copiar archivos del proyecto
+log_info "Copiando archivos del proyecto..."
+if [ "$CURRENT_DIR" != "$PROJECT_DIR" ]; then
+    # Copiar todos los archivos del directorio actual al directorio del proyecto
+    cp -r "$CURRENT_DIR"/* "$PROJECT_DIR"/ 2>/dev/null || true
+    cp -r "$CURRENT_DIR"/.[^.]* "$PROJECT_DIR"/ 2>/dev/null || true
+    
+    # Cambiar al directorio del proyecto
+    cd "$PROJECT_DIR"
+fi
+
+# Verificar archivos críticos
+log_info "Verificando estructura del proyecto..."
+required_files=(
+    "package.json"
+    "docker-compose.yml"
+    "Dockerfile"
+    "src/server.ts"
+    "src/config/config.ts"
+    "prisma/schema.prisma"
+    ".env.example"
+)
+
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        log_error "Archivo crítico faltante: $file"
+        exit 1
+    fi
+done
+
+log_success "Estructura del proyecto verificada"
 
 # Generar credenciales seguras
-echo "🔐 Generando credenciales seguras..."
-DB_PASSWORD="Systems-GT161623++"
-REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+log_info "Generando credenciales seguras..."
+DB_PASSWORD=$(generate_password)
+REDIS_PASSWORD=$(generate_password)
 JWT_SECRET=$(openssl rand -hex 64)
 ENCRYPTION_KEY=$(openssl rand -hex 32)
 
-# Credenciales predefinidas
-TMDB_API_KEY="70435d34ec469ca91c4b95991d16ec3f"
-OMDB_API_KEY="8057e51"
-CONTABO_CLIENT_ID="INT-13821944"
-CONTABO_CLIENT_SECRET="04vsGriDWXj25tJuqv4X27YMEA2KMe0w"
-CONTABO_API_USER="team.systemsgt@gmail.com"
-CONTABO_API_PASSWORD="Systems-GT161623++"
-CONTABO_INSTANCE_ID="vmi2784375"
+# Solicitar API keys
+echo ""
+log_warning "Se requieren las siguientes API keys:"
+echo "Puedes obtenerlas en:"
+echo "- TMDB: https://www.themoviedb.org/settings/api"
+echo "- OMDB: http://www.omdbapi.com/apikey.aspx"
+echo ""
+read -p "TMDB API Key: " TMDB_API_KEY
+read -p "OMDB API Key: " OMDB_API_KEY
 
-# Configurar PostgreSQL
-echo "🔧 Configurando PostgreSQL..."
-sudo -u postgres psql << EOF
-CREATE USER lens_user WITH PASSWORD '${DB_PASSWORD}';
-CREATE DATABASE lens_db OWNER lens_user;
-GRANT ALL PRIVILEGES ON DATABASE lens_db TO lens_user;
-ALTER USER lens_user CREATEDB;
-\q
-EOF
+if [ -z "$TMDB_API_KEY" ] || [ -z "$OMDB_API_KEY" ]; then
+    log_error "Las API keys son obligatorias para el funcionamiento del sistema"
+    exit 1
+fi
 
-# Clonar proyecto LENS
-echo "📥 Clonando proyecto LENS..."
-sudo -u lens git clone https://github.com/GtrhSystems/LENS.git /opt/lens || true
-cd /opt/lens
-chown -R lens:lens /opt/lens
-chmod -R 755 /opt/lens
-
-# Crear archivo .env completo
-echo "⚙️ Configurando variables de entorno..."
-sudo -u lens tee /opt/lens/.env > /dev/null << EOF
+# Crear archivo .env
+log_info "Configurando variables de entorno..."
+sudo -u lens tee "$PROJECT_DIR/.env" > /dev/null << EOF
 # Configuración del Servidor
 PORT=3001
 NODE_ENV=production
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=*
 
 # Base de Datos PostgreSQL
-DATABASE_URL="postgresql://lens_user:${DB_PASSWORD}@localhost:5432/lens_db"
+DATABASE_URL="postgresql://lens_user:${DB_PASSWORD}@postgres:5432/lens_db"
 
 # Redis Cache
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
 REDIS_PASSWORD=${REDIS_PASSWORD}
 CACHE_TTL=3600
 
@@ -135,6 +255,7 @@ UPLOAD_PATH=./uploads
 
 # Configuración de Seguridad
 JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRES_IN=24h
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
 # Configuración de Backup
@@ -142,79 +263,135 @@ BACKUP_ENABLED=true
 BACKUP_INTERVAL=24h
 BACKUP_PATH=./backups
 
-# CONTABO API Configuration
-CONTABO_CLIENT_ID=${CONTABO_CLIENT_ID}
-CONTABO_CLIENT_SECRET=${CONTABO_CLIENT_SECRET}
-CONTABO_API_USER=${CONTABO_API_USER}
-CONTABO_API_PASSWORD=${CONTABO_API_PASSWORD}
-CONTABO_INSTANCE_ID=${CONTABO_INSTANCE_ID}
-CONTABO_AUTO_BACKUP=true
-CONTABO_BACKUP_RETENTION=7
+# Variables para Docker Compose
+DB_PASSWORD=${DB_PASSWORD}
+REDIS_PASSWORD=${REDIS_PASSWORD}
 EOF
 
 # Configurar permisos del .env
-chown lens:lens /opt/lens/.env
-chmod 600 /opt/lens/.env
+chown lens:lens "$PROJECT_DIR/.env"
+chmod 600 "$PROJECT_DIR/.env"
 
-# Instalar dependencias
-echo "📦 Instalando dependencias..."
-sudo -u lens npm install
+# Crear directorios necesarios
+log_info "Creando directorios necesarios..."
+sudo -u lens mkdir -p "$PROJECT_DIR"/{logs,uploads,backups,ssl}
 
-# Ejecutar migraciones de Prisma
-echo "🗄️ Configurando base de datos..."
-sudo -u lens npx prisma generate
-sudo -u lens npx prisma migrate deploy
+# Instalar dependencias de Node.js
+log_info "Instalando dependencias de Node.js..."
+sudo -u lens bash << 'EOF'
+cd /opt/lens
 
-# Construir y iniciar servicios
-echo "🚀 Iniciando servicios Docker..."
-sudo -u lens docker-compose -f docker-compose.contabo.yml up -d --build
+# Instalar dependencias faltantes críticas
+npm install joi helmet compression cors
+npm install --save-dev @types/joi @types/cors nodemon eslint prettier
 
-# Esperar a que los servicios estén listos
-echo "⏳ Esperando servicios..."
-sleep 30
+# Instalar todas las dependencias del proyecto
+npm install
 
-# Configurar firewall
-echo "🔥 Configurando firewall..."
-ufw allow ssh
-ufw allow 80
-ufw allow 443
-ufw allow 3001/tcp
-ufw allow 5432/tcp
-ufw --force enable
-
-# Configurar rotación de logs
-echo "📝 Configurando rotación de logs..."
-tee /etc/logrotate.d/lens << EOF
-/opt/lens/logs/*.log {
-    daily
-    missingok
-    rotate 52
-    compress
-    delaycompress
-    notifempty
-    create 0644 lens lens
-    postrotate
-        systemctl reload rsyslog > /dev/null 2>&1 || true
-    endscript
-}
+# Generar Prisma Client
+npx prisma generate
 EOF
 
+if [ $? -eq 0 ]; then
+    log_success "Dependencias de Node.js instaladas correctamente"
+else
+    log_error "Error al instalar dependencias de Node.js"
+    exit 1
+fi
+
+# Compilar aplicación
+log_info "Compilando aplicación TypeScript..."
+sudo -u lens bash << 'EOF'
+cd /opt/lens
+npm run build
+EOF
+
+if [ $? -eq 0 ]; then
+    log_success "Aplicación compilada correctamente"
+else
+    log_error "Error al compilar la aplicación"
+    exit 1
+fi
+
+# Configurar PostgreSQL (solo para crear usuario y base de datos)
+log_info "Configurando PostgreSQL..."
+apt install -y postgresql-16 postgresql-contrib-16
+systemctl start postgresql
+systemctl enable postgresql
+
+# Esperar a que PostgreSQL esté listo
+sleep 5
+
+sudo -u postgres psql << EOF
+DROP DATABASE IF EXISTS lens_db;
+DROP USER IF EXISTS lens_user;
+CREATE USER lens_user WITH PASSWORD '$DB_PASSWORD';
+CREATE DATABASE lens_db OWNER lens_user;
+GRANT ALL PRIVILEGES ON DATABASE lens_db TO lens_user;
+ALTER USER lens_user CREATEDB;
+\q
+EOF
+
+log_success "Base de datos PostgreSQL configurada"
+
+# Iniciar servicios Docker
+log_info "Iniciando servicios Docker..."
+sudo -u lens bash << 'EOF'
+cd /opt/lens
+docker compose up -d --build
+EOF
+
+# Esperar a que los servicios estén listos
+log_info "Esperando servicios Docker..."
+sleep 30
+
+# Ejecutar migraciones de Prisma
+log_info "Ejecutando migraciones de base de datos..."
+sudo -u lens bash << 'EOF'
+cd /opt/lens
+# Esperar a que la base de datos esté lista
+for i in {1..30}; do
+    if npx prisma migrate deploy 2>/dev/null; then
+        echo "Migraciones ejecutadas correctamente"
+        break
+    fi
+    echo "Esperando base de datos... (intento $i/30)"
+    sleep 2
+done
+EOF
+
+# Configurar firewall
+log_info "Configurando firewall..."
+ufw --force reset
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow ssh
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 3001/tcp
+ufw --force enable
+
 # Crear servicio systemd
-echo "🔧 Creando servicio systemd..."
+log_info "Creando servicio systemd..."
 tee /etc/systemd/system/lens.service << EOF
 [Unit]
 Description=LENS Media Management System
-After=network.target postgresql.service docker.service
-Requires=postgresql.service docker.service
+After=network-online.target docker.service postgresql.service
+Wants=network-online.target
+Requires=docker.service
 
 [Service]
-Type=forking
+Type=oneshot
+RemainAfterExit=yes
 User=lens
 Group=lens
 WorkingDirectory=/opt/lens
-ExecStart=/usr/local/bin/docker-compose -f docker-compose.contabo.yml up -d
-ExecStop=/usr/local/bin/docker-compose -f docker-compose.contabo.yml down
-Restart=always
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose restart
+TimeoutStartSec=300
+TimeoutStopSec=120
+Restart=on-failure
 RestartSec=10
 
 [Install]
@@ -225,24 +402,112 @@ systemctl daemon-reload
 systemctl enable lens
 systemctl start lens
 
+# Verificar servicios
+log_info "Verificando servicios..."
+sleep 15
+
+if systemctl is-active --quiet lens; then
+    log_success "Servicio LENS activo"
+else
+    log_warning "Servicio LENS no está completamente activo, verificando contenedores..."
+fi
+
+# Verificar contenedores Docker
+sudo -u lens bash << 'EOF'
+cd /opt/lens
+if docker compose ps | grep -q "Up"; then
+    echo "✅ Contenedores Docker ejecutándose correctamente"
+else
+    echo "⚠️  Algunos contenedores pueden no estar ejecutándose"
+    docker compose ps
+fi
+EOF
+
+# Verificar conectividad de la aplicación
+log_info "Verificando conectividad de la aplicación..."
+sleep 10
+
+for i in {1..10}; do
+    if curl -s http://localhost:3001/health >/dev/null 2>&1; then
+        log_success "Aplicación respondiendo correctamente en puerto 3001"
+        break
+    fi
+    log_info "Esperando aplicación... (intento $i/10)"
+    sleep 3
+done
+
+# Guardar credenciales
+log_info "Guardando credenciales..."
+tee "$PROJECT_DIR/CREDENTIALS.txt" << EOF
+# LENS - Credenciales de Instalación
+# Generado: $(date)
+# MANTENER ESTE ARCHIVO SEGURO
+
+Database: lens_db
+DB User: lens_user
+DB Password: ${DB_PASSWORD}
+JWT Secret: ${JWT_SECRET}
+Redis Password: ${REDIS_PASSWORD}
+Encryption Key: ${ENCRYPTION_KEY}
+TMDB API Key: ${TMDB_API_KEY}
+OMDB API Key: ${OMDB_API_KEY}
+
+# URLs de Acceso
+URL Local: http://localhost:3001
+Health Check: http://localhost:3001/health
+API Base: http://localhost:3001/api
+
+# Comandos Útiles
+Estado del servicio: systemctl status lens
+Logs de la aplicación: docker compose logs -f lens-app
+Reiniciar servicios: systemctl restart lens
+Parar servicios: systemctl stop lens
+EOF
+
+chown lens:lens "$PROJECT_DIR/CREDENTIALS.txt"
+chmod 600 "$PROJECT_DIR/CREDENTIALS.txt"
+
+# Configurar logrotate para logs
+log_info "Configurando rotación de logs..."
+tee /etc/logrotate.d/lens << EOF
+/opt/lens/logs/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+    su lens lens
+}
+EOF
+
+# Mostrar información final
 echo ""
-echo "✅ ¡Instalación de LENS completada exitosamente!"
+log_success "¡Instalación de LENS completada exitosamente!"
 echo ""
-echo "🌐 Información de acceso:"
-echo "   URL: http://$(curl -s ifconfig.me):3001"
+log_info "🌐 Información de acceso:"
+echo "   URL Externa: http://$(curl -s ifconfig.me 2>/dev/null || echo 'IP-EXTERNA'):3001"
 echo "   URL Local: http://localhost:3001"
+echo "   Health Check: http://localhost:3001/health"
+echo "   API Documentation: http://localhost:3001/api"
 echo ""
-echo "🔐 Credenciales generadas:"
-echo "   Database: lens_db"
-echo "   DB User: lens_user"
-echo "   DB Password: ${DB_PASSWORD}"
-echo "   JWT Secret: ${JWT_SECRET}"
-echo "   Redis Password: ${REDIS_PASSWORD}"
+log_info "🔐 Credenciales guardadas en: $PROJECT_DIR/CREDENTIALS.txt"
 echo ""
-echo "📊 Comandos útiles:"
+log_info "📊 Comandos útiles:"
 echo "   Estado: systemctl status lens"
-echo "   Logs: docker-compose -f /opt/lens/docker-compose.contabo.yml logs -f"
+echo "   Logs: docker compose logs -f"
 echo "   Reiniciar: systemctl restart lens"
 echo "   Parar: systemctl stop lens"
+echo "   Gestión: $PROJECT_DIR/scripts/manage.sh"
 echo ""
-echo "🎉 LENS está listo para usar!"
+log_info "📋 Próximos pasos:"
+echo "   1. Verificar que la aplicación responde: curl http://localhost:3001/health"
+echo "   2. Configurar SSL/TLS si es necesario"
+echo "   3. Configurar backup automático"
+echo "   4. Revisar logs: docker compose logs -f lens-app"
+echo ""
+log_success "🎉 LENS está listo para usar!"
+
+# Log final
+log_with_timestamp "Instalación completada exitosamente"

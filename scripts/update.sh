@@ -30,6 +30,16 @@ docker-compose -f docker-compose.contabo.yml build --no-cache
 echo "🗄️ Ejecutando migraciones..."
 docker-compose -f docker-compose.contabo.yml run --rm lens npx prisma migrate deploy
 
+# Cambiar líneas 11, 25, 35, 43 de:
+docker-compose -f docker-compose.contabo.yml
+# Por:
+docker-compose
+docker-compose down
+docker-compose build --no-cache
+docker-compose run --rm lens-app npx prisma migrate deploy
+docker-compose up -d
+docker-compose ps
+
 # Reiniciar servicios
 echo "▶️ Reiniciando servicios..."
 docker-compose -f docker-compose.contabo.yml up -d

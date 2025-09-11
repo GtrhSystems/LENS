@@ -67,4 +67,36 @@ export class DatabaseService {
       return false;
     }
   }
+
+  async getSources(options: { page?: number; limit?: number; search?: string }) {
+    const { page = 1, limit = 20, search } = options;
+    const skip = (page - 1) * limit;
+    
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { url: { contains: search, mode: 'insensitive' as const } },
+      ],
+    } : {};
+    
+    const [sources, total] = await Promise.all([
+      this.prisma.source.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.source.count({ where }),
+    ]);
+    
+    return {
+      sources,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

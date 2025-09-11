@@ -5,12 +5,14 @@ import compression from 'compression';
 import { config } from './config/config';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
-import { rateLimiter } from './middleware/rateLimiter';
+import { rateLimiterMiddleware } from './middleware/rateLimiter';
 import { routes } from './routes';
+// ❌ PROBLEMA: Import duplicado e incorrecto
+import sourcesRoutes from './routes/sources';
+import contaboRoutes from './routes/contabo';
 import { DatabaseService } from './services/DatabaseService';
 import { RedisService } from './services/RedisService';
 import { SchedulerService } from './services/SchedulerService';
-import contaboRoutes from './routes/contabo';
 
 class LensServer {
   private app: express.Application;
@@ -67,6 +69,9 @@ class LensServer {
   }
 
   private setupRoutes(): void {
+    // Rate limiting global
+    this.app.use(rateLimiter);
+    
     // Health check
     this.app.get('/health', (req, res) => {
       res.json({
@@ -90,10 +95,15 @@ class LensServer {
 
     // Error handler
     this.app.use(errorHandler);
+  }
 
-    // Routes
-    app.use('/api/sources', sourcesRoutes);
-    app.use('/api/contabo', contaboRoutes);
+    // ❌ ERROR: Variables no definidas y rutas duplicadas
+    // app.use('/api/sources', sourcesRoutes);  // 'app' no definido
+    // app.use('/api/contabo', contaboRoutes);  // 'app' no definido
+    
+    // ✅ CORRECCIÓN:
+    this.app.use('/api/sources', sourcesRoutes);
+    this.app.use('/api/contabo', contaboRoutes);
   }
 
   private async initializeServices(): Promise<void> {

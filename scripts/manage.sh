@@ -39,7 +39,11 @@ case "$1" in
         echo "🔄 Actualizando LENS..."
         git pull
         docker-compose build --no-cache
+        # Eliminar referencias a docker-compose.contabo.yml
+        # Cambiar por docker-compose.yml
         docker-compose up -d
+        docker-compose down
+        docker-compose restart
         ;;
     clean)
         echo "🧹 Limpiando recursos Docker..."

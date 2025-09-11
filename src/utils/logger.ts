@@ -18,18 +18,18 @@ const logFormat = winston.format.combine(
 );
 
 export const logger = winston.createLogger({
-  level: config.log.level,
+  level: config.logging.level, // Corregir referencia
   format: logFormat,
   defaultMeta: { service: 'lens-scanner' },
   transports: [
     new winston.transports.File({
-      filename: config.log.filePath.replace('.log', '-error.log'),
+      filename: config.logging.filePath.replace('.log', '-error.log'),
       level: 'error',
       maxsize: 5242880, // 5MB
       maxFiles: 5,
     }),
     new winston.transports.File({
-      filename: config.log.filePath,
+      filename: config.logging.filePath,
       maxsize: 5242880, // 5MB
       maxFiles: 5,
     }),
