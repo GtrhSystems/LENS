@@ -5,9 +5,8 @@ import compression from 'compression';
 import { config } from './config/config';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
-import { rateLimiterMiddleware } from './middleware/rateLimiter';
+import { rateLimiterMiddleware as rateLimiter } from './middleware/rateLimiter';
 import { routes } from './routes';
-// ❌ PROBLEMA: Import duplicado e incorrecto
 import sourcesRoutes from './routes/sources';
 import contaboRoutes from './routes/contabo';
 import { DatabaseService } from './services/DatabaseService';
@@ -28,7 +27,6 @@ class LensServer {
   }
 
   private setupMiddleware(): void {
-    // Seguridad
     this.app.use(helmet({
       contentSecurityPolicy: {
         directives: {
@@ -40,7 +38,6 @@ class LensServer {
       },
     }));
 
-    // CORS
     this.app.use(cors({
       origin: config.corsOrigin,
       credentials: true,
@@ -48,17 +45,11 @@ class LensServer {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }));
 
-    // Compresión
     this.app.use(compression());
-
-    // Rate limiting
     this.app.use(rateLimiter);
-
-    // Body parsing
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Logging de requests
     this.app.use((req, res, next) => {
       logger.info(`${req.method} ${req.path}`, {
         ip: req.ip,
@@ -69,10 +60,8 @@ class LensServer {
   }
 
   private setupRoutes(): void {
-    // Rate limiting global
     this.app.use(rateLimiter);
     
-    // Health check
     this.app.get('/health', (req, res) => {
       res.json({
         status: 'OK',
@@ -82,10 +71,10 @@ class LensServer {
       });
     });
 
-    // API routes
     this.app.use('/api', routes);
+    this.app.use('/api/sources', sourcesRoutes);
+    this.app.use('/api/contabo', contaboRoutes);
 
-    // 404 handler
     this.app.use('*', (req, res) => {
       res.status(404).json({
         error: 'Endpoint no encontrado',
@@ -93,33 +82,19 @@ class LensServer {
       });
     });
 
-    // Error handler
     this.app.use(errorHandler);
-  }
-
-    // ❌ ERROR: Variables no definidas y rutas duplicadas
-    // app.use('/api/sources', sourcesRoutes);  // 'app' no definido
-    // app.use('/api/contabo', contaboRoutes);  // 'app' no definido
-    
-    // ✅ CORRECCIÓN:
-    this.app.use('/api/sources', sourcesRoutes);
-    this.app.use('/api/contabo', contaboRoutes);
   }
 
   private async initializeServices(): Promise<void> {
     try {
-      // Inicializar base de datos
       await this.databaseService.connect();
       logger.info('Base de datos conectada exitosamente');
 
-      // Inicializar Redis
       await this.redisService.connect();
       logger.info('Redis conectado exitosamente');
 
-      // Inicializar scheduler
       this.schedulerService.start();
       logger.info('Scheduler iniciado exitosamente');
-
     } catch (error) {
       logger.error('Error inicializando servicios:', error);
       process.exit(1);
@@ -149,25 +124,16 @@ class LensServer {
 
   public async start(): Promise<void> {
     try {
-      // Configurar middleware
       this.setupMiddleware();
-      
-      // Configurar rutas
       this.setupRoutes();
-      
-      // Inicializar servicios
       await this.initializeServices();
-      
-      // Configurar cierre graceful
       this.setupGracefulShutdown();
       
-      // Iniciar servidor
       this.app.listen(config.port, () => {
         logger.info(`🚀 LENS Server iniciado en puerto ${config.port}`);
         logger.info(`🌍 Entorno: ${config.nodeEnv}`);
         logger.info(`📊 Health check: http://localhost:${config.port}/health`);
       });
-      
     } catch (error) {
       logger.error('Error iniciando servidor:', error);
       process.exit(1);
@@ -175,7 +141,6 @@ class LensServer {
   }
 }
 
-// Iniciar servidor
 const server = new LensServer();
 server.start().catch((error) => {
   console.error('Error fatal:', error);

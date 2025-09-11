@@ -219,9 +219,21 @@ if [ -z "$TMDB_API_KEY" ] || [ -z "$OMDB_API_KEY" ]; then
     exit 1
 fi
 
-# Crear archivo .env
+# Crear archivo .env con manejo de errores mejorado
 log_info "Configurando variables de entorno..."
-sudo -u lens tee "$PROJECT_DIR/.env" > /dev/null << EOF
+
+# Función para crear .env de forma segura
+create_env_file() {
+    local env_file="$PROJECT_DIR/.env"
+    
+    # Asegurar permisos del directorio
+    chown -R lens:lens "$PROJECT_DIR"
+    chmod -R 755 "$PROJECT_DIR"
+    
+    # Crear archivo temporal
+    local temp_env="/tmp/lens_env_$$"
+    
+    cat > "$temp_env" << EOF
 # Configuración del Servidor
 PORT=3001
 NODE_ENV=production
@@ -267,10 +279,30 @@ BACKUP_PATH=./backups
 DB_PASSWORD=${DB_PASSWORD}
 REDIS_PASSWORD=${REDIS_PASSWORD}
 EOF
+    
+    # Mover archivo temporal al destino final
+    mv "$temp_env" "$env_file"
+    
+    # Configurar permisos
+    chown lens:lens "$env_file"
+    chmod 600 "$env_file"
+    
+    # Verificar
+    if [ -f "$env_file" ] && [ -r "$env_file" ]; then
+        log_success "Archivo .env creado correctamente"
+        return 0
+    else
+        log_error "Error al crear el archivo .env"
+        return 1
+    fi
+}
 
-# Configurar permisos del .env
-chown lens:lens "$PROJECT_DIR/.env"
-chmod 600 "$PROJECT_DIR/.env"
+# Llamar a la función
+if ! create_env_file; then
+    exit 1
+fi
+
+log_success "Archivo .env creado correctamente"
 
 # Crear directorios necesarios
 log_info "Creando directorios necesarios..."
